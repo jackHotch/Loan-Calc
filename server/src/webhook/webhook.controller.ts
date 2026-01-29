@@ -27,6 +27,8 @@ export class WebhookController {
       switch (event.type) {
         case 'user.updated':
           await this.usersService.updateUser(event.data.first_name)
+        case 'user.created':
+          await this.usersService.createUser(event.data)
       }
       // Handle different event types
       // switch (event.type) {
