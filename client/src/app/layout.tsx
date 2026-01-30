@@ -5,6 +5,8 @@ import './globals.css'
 import { Header } from '@/components/header'
 import { cn } from '@/lib/utils'
 import { ThemeProvider } from '@/providers/theme-provider'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { AppSidebar } from '@/components/app-sidebar'
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -28,7 +30,10 @@ export default function RootLayout({
         <body>
           <ThemeProvider attribute='class' defaultTheme='system' enableSystem disableTransitionOnChange>
             <Header />
-            {children}
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>{children}</SidebarInset>
+            </SidebarProvider>
           </ThemeProvider>
         </body>
       </html>

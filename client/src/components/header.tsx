@@ -1,9 +1,21 @@
+'use client'
+
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { Calculator } from 'lucide-react'
-import { ModeToggle } from './ui/mode-toggle'
+import { ModeToggle } from './mode-toggle'
 import { Button } from './ui/button'
+import { usePathname } from 'next/navigation'
 
 export const Header = () => {
+  const pathname = usePathname()
+
+  if (pathname != '/')
+    return (
+      <div className='fixed top-2 right-2 z-10'>
+        <ModeToggle />
+      </div>
+    )
+
   return (
     <>
       <header className='flex justify-between items-center p-6 gap-4 h-16'>
