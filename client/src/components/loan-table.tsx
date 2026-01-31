@@ -1,14 +1,12 @@
 'use client'
 
-import * as React from 'react'
-import { IconChevronDown, IconDotsVertical, IconLayoutColumns, IconPlus } from '@tabler/icons-react'
+import { ChevronDown, EllipsisVertical, Columns2, Plus } from 'lucide-react'
 import {
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -17,19 +15,10 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import { z } from 'zod'
+import { loanTableSchema } from '@/constants/scheme'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -38,24 +27,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useState } from 'react'
+import { TableCellViewer } from './table-cell-viewer'
 
-export const schema = z.object({
-  name: z.string(),
-  current_balance: z.string(),
-  interest_rate: z.string(),
-  lender: z.string(),
-  starting_principal: z.string(),
-  remaining_principal: z.string(),
-  accrued_interest: z.string(),
-  payoff_date: z.string(),
-})
-
-const columns: ColumnDef<z.infer<typeof schema>>[] = [
+const columns: ColumnDef<z.infer<typeof loanTableSchema>>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -85,7 +61,13 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: 'name',
     header: 'Loan Name',
     cell: ({ row }) => {
-      return <TableCellViewer item={row.original} />
+      return (
+        <TableCellViewer data={row.original}>
+          <Button variant='link' className='text-foreground w-fit px-0 text-left'>
+            {row.original.name}
+          </Button>
+        </TableCellViewer>
+      )
     },
     enableHiding: false,
   },
@@ -126,25 +108,28 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
   {
     id: 'actions',
-    cell: () => (
+    cell: ({ row }) => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant='ghost' className='data-[state=open]:bg-muted text-muted-foreground flex size-8' size='icon'>
-            <IconDotsVertical />
+            <EllipsisVertical />
             <span className='sr-only'>Open menu</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-32'>
-          <DropdownMenuItem>Edit</DropdownMenuItem>
+          <TableCellViewer data={row.original}>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
+          </TableCellViewer>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant='destructive'>Delete</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     ),
+    enableHiding: false,
   },
 ]
 
-export function LoanTable({ data: initialData }: { data: z.infer<typeof schema>[] }) {
+export function LoanTable({ data: initialData }: { data: z.infer<typeof loanTableSchema>[] }) {
   const [data, setData] = useState(() => initialData)
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -176,15 +161,17 @@ export function LoanTable({ data: initialData }: { data: z.infer<typeof schema>[
   return (
     <div className='w-full flex-col justify-start gap-6'>
       <div className='flex items-center justify-between px-4 pb-4 pt-4 lg:px-6'>
-        <h2 className='text-2xl font-bold'>My Loans</h2>
+        <h2 className='text-2xl font-bold'>
+          <span className='text-primary'>My</span> Loans
+        </h2>
         <div className='flex items-center gap-2'>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant='outline' size='sm'>
-                <IconLayoutColumns />
+                <Columns2 />
                 <span className='hidden lg:inline'>Customize Columns</span>
                 <span className='lg:hidden'>Columns</span>
-                <IconChevronDown />
+                <ChevronDown />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-56'>
@@ -205,10 +192,12 @@ export function LoanTable({ data: initialData }: { data: z.infer<typeof schema>[
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size='sm'>
-            <IconPlus />
-            <span className='hidden lg:inline'>Add Loan</span>
-          </Button>
+          <TableCellViewer>
+            <Button size='sm'>
+              <Plus />
+              <span className='hidden lg:inline'>Add Loan</span>
+            </Button>
+          </TableCellViewer>
         </div>
       </div>
       <div className='relative flex flex-col gap-4 overflow-auto px-4 lg:px-6'>
@@ -255,71 +244,5 @@ export function LoanTable({ data: initialData }: { data: z.infer<typeof schema>[
         </div>
       </div>
     </div>
-  )
-}
-
-function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
-  return (
-    <Drawer>
-      <DrawerTrigger asChild>
-        <Button variant='link' className='text-foreground w-fit px-0 text-left'>
-          {item.name}
-        </Button>
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader className='gap-1'>
-          <DrawerTitle>{item.name}</DrawerTitle>
-          <DrawerDescription>Loan details and payment information</DrawerDescription>
-        </DrawerHeader>
-        <div className='flex flex-col gap-4 overflow-y-auto px-4 text-sm'>
-          <form className='flex flex-col gap-4'>
-            <div className='flex flex-col gap-3'>
-              <Label htmlFor='name'>Loan Name</Label>
-              <Input id='name' defaultValue={item.name} />
-            </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='current_balance'>Current Balance</Label>
-                <Input id='current_balance' defaultValue={item.current_balance} />
-              </div>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='interest_rate'>Interest Rate</Label>
-                <Input id='interest_rate' defaultValue={item.interest_rate} />
-              </div>
-            </div>
-            <div className='flex flex-col gap-3'>
-              <Label htmlFor='lender'>Lender</Label>
-              <Input id='lender' defaultValue={item.lender} />
-            </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='starting_principal'>Starting Principal</Label>
-                <Input id='starting_principal' defaultValue={item.starting_principal} />
-              </div>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='remaining_principal'>Remaining Principal</Label>
-                <Input id='remaining_principal' defaultValue={item.remaining_principal} />
-              </div>
-            </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='accrued_interest'>Accrued Interest</Label>
-                <Input id='accrued_interest' defaultValue={item.accrued_interest} />
-              </div>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='payoff_date'>Payoff Date</Label>
-                <Input id='payoff_date' defaultValue={item.payoff_date} />
-              </div>
-            </div>
-          </form>
-        </div>
-        <DrawerFooter>
-          <Button>Save Changes</Button>
-          <DrawerClose asChild>
-            <Button variant='outline'>Cancel</Button>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
   )
 }

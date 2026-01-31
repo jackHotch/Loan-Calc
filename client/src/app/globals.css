@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --primary-400: oklch(61.774% 0.21976 287.672);
   --primary: oklch(0.55 0.24 270);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -43,7 +44,8 @@
   --font-family-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary-500: var(--primary);
+  --color-primary-400: var(--primary-400);
+  --color-primary: var(--primary);
 }
 
 .dark {
@@ -53,6 +55,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
+  --primary-400: oklch(61.774% 0.21976 287.672);
   --primary: oklch(0.60 0.26 270);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
@@ -106,6 +109,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-400: var(--primary-400);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
