@@ -1,3 +1,3 @@
 export default function Compare() {
-  return <div>loans</div>
+  return <div>compare</div>
 }

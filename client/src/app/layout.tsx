@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
+import { SiteHeader } from '@/components/site-header'
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -32,7 +33,10 @@ export default function RootLayout({
             <Header />
             <SidebarProvider>
               <AppSidebar />
-              <SidebarInset>{children}</SidebarInset>
+              <SidebarInset>
+                <SiteHeader />
+                {children}
+              </SidebarInset>
             </SidebarProvider>
           </ThemeProvider>
         </body>

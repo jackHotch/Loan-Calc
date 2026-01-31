@@ -1,3 +1,3 @@
 export default function Simulations() {
-  return <div>loans</div>
+  return <div>simulations</div>
 }

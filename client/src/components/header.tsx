@@ -9,12 +9,7 @@ import { usePathname } from 'next/navigation'
 export const Header = () => {
   const pathname = usePathname()
 
-  if (pathname != '/')
-    return (
-      <div className='fixed top-2 right-2 z-10'>
-        <ModeToggle />
-      </div>
-    )
+  if (pathname != '/') return null
 
   return (
     <>
