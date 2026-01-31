@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 const data = {
   user: {
@@ -47,6 +48,10 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname()
+
+  if (pathname == '/') return null
+
   return (
     <Sidebar collapsible='icon' {...props} variant='floating'>
       <SidebarHeader>
