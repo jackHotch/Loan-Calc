@@ -25,7 +25,8 @@ CREATE TABLE loans (
   minimum_payment DECIMAL(10, 2) NOT NULL,
   term_months INTEGER,
   remaining_months INTEGER,
-  start_date TIMESTAMP NOT NULL
+  start_date TIMESTAMP NOT NULL,
+  extra_payment DECIMAL(12, 2)
 );
 
 CREATE TABLE simulations (
