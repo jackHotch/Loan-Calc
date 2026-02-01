@@ -11,99 +11,124 @@ import {
   DrawerFooter,
   DrawerClose,
 } from './ui/drawer'
-import { loanTableSchema } from '@/constants/schema'
+import { loanFormSchema, LoanTable } from '@/constants/schema'
 import { z } from 'zod'
-import { ReactNode, useState } from 'react'
+import { ReactNode } from 'react'
 import { DatePicker } from './date-picker'
+import { useAuth } from '@clerk/nextjs'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { CurrencyInput } from './currency-input'
+import { PercentageInput } from './percentage-input'
+import { tableToForm } from '@/lib/utils'
 
 export function TableCellViewer({
   data,
   isNewLoan = false,
   children,
 }: {
-  data?: z.infer<typeof loanTableSchema>
+  data?: LoanTable
   isNewLoan?: boolean
   children: ReactNode
 }) {
-  const [startDate, setStartDate] = useState<Date | undefined>()
-  const [payoffDate, setPayoffDate] = useState<Date | undefined>()
+  const { userId } = useAuth()
+
+  const form = useForm({
+    resolver: zodResolver(loanFormSchema),
+    defaultValues: isNewLoan
+      ? {
+          name: '',
+          lender: '',
+          start_date: null,
+          payoff_date: null,
+          starting_principal: null,
+          remaining_principal: null,
+          accrued_interest: null,
+          interest_rate: null,
+          minimum_payment: null,
+          extra_payment: null,
+        }
+      : tableToForm(data),
+  })
 
   const description = isNewLoan
     ? 'Edit loan details and payment information'
     : 'Enter new loan details and payment information'
-
-  const [loanData, SetLoanData] = useState(
-    data || {
-      name: '',
-      current_balance: '',
-      interest_rate: '',
-      lender: '',
-      starting_principal: '',
-      remaining_principal: '',
-      accrued_interest: '',
-      payoff_date: '',
-      minimum_payment: '',
-      extra_payment: '',
-      start_date: '',
-    },
-  )
 
   return (
     <Drawer direction='right'>
       <DrawerTrigger asChild>{children}</DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className='gap-1'>
-          <DrawerTitle>{loanData.name || 'New Loan'}</DrawerTitle>
+          <DrawerTitle>{form.getValues('name') || 'New Loan'}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
         <div className='flex flex-col gap-4 overflow-y-auto px-4 text-sm'>
           <form className='flex flex-col gap-4'>
             <div className='flex flex-col gap-3'>
               <Label htmlFor='name'>Loan Name</Label>
-              <Input id='name' defaultValue={loanData.name} placeholder='ex: Auto Loan' />
+              <Input id='name' defaultValue={form.watch('name')} placeholder='ex: Auto Loan' />
             </div>
             <div className='flex flex-col gap-3'>
               <Label htmlFor='lender'>Lender</Label>
-              <Input id='lender' defaultValue={loanData.lender} placeholder='ex: Sallie Mae' />
+              <Input id='lender' defaultValue={form.watch('lender')} placeholder='ex: Sallie Mae' />
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='start_date'>Start Date</Label>
-                <DatePicker value={startDate} onChange={setStartDate} />
+                <DatePicker value={form.watch('start_date')} onChange={(val) => form.setValue('start_date', val)} />
               </div>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='payoff_date'>Payoff Date</Label>
-                <DatePicker value={payoffDate} onChange={setPayoffDate} />
+                <DatePicker value={form.watch('payoff_date')} onChange={(val) => form.setValue('payoff_date', val)} />
               </div>
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='starting_principal'>Starting Principal</Label>
-                <Input id='starting_principal' defaultValue={loanData.starting_principal} />
+                <CurrencyInput
+                  defaultValue={form.getValues('starting_principal')}
+                  onChange={(val) => form.setValue('starting_principal', val)}
+                />
               </div>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='remaining_principal'>Remaining Principal</Label>
-                <Input id='remaining_principal' defaultValue={loanData.remaining_principal} />
+                <CurrencyInput
+                  defaultValue={form.getValues('remaining_principal')}
+                  onChange={(val) => form.setValue('remaining_principal', val)}
+                />
               </div>
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='accrued_interest'>Accrued Interest</Label>
-                <Input id='accrued_interest' defaultValue={loanData.accrued_interest} />
+                <CurrencyInput
+                  defaultValue={form.getValues('accrued_interest')}
+                  onChange={(val) => form.setValue('accrued_interest', val)}
+                />
               </div>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='interest_rate'>Interest Rate</Label>
-                <Input id='interest_rate' defaultValue={loanData.interest_rate} placeholder='%' />
+                <PercentageInput
+                  defaultValue={form.getValues('interest_rate')}
+                  onChange={(val) => form.setValue('interest_rate', val)}
+                />
               </div>
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='minimum_payment'>Minimum Payment</Label>
-                <Input id='minimum_payment' defaultValue={loanData.minimum_payment} />
+                <CurrencyInput
+                  defaultValue={form.getValues('minimum_payment')}
+                  onChange={(val) => form.setValue('minimum_payment', val)}
+                />
               </div>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='extra_payment'>Extra Payment</Label>
-                <Input id='extra_payment' defaultValue={loanData.extra_payment} placeholder='Optional' />
+                <CurrencyInput
+                  defaultValue={form.getValues('extra_payment')}
+                  onChange={(val) => form.setValue('extra_payment', val)}
+                />
               </div>
             </div>
           </form>

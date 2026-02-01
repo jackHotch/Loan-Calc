@@ -6,7 +6,7 @@ import { Field } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CalendarIcon } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatInputDate } from '@/lib/utils'
 
 function isValidDate(date: Date | undefined) {
   if (!date) {
@@ -25,7 +25,7 @@ export function DatePicker({
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date | undefined>(externalDate)
   const [month, setMonth] = React.useState<Date | undefined>(externalDate)
-  const [value, setValue] = React.useState(externalDate ? formatDate(externalDate) : '')
+  const [value, setValue] = React.useState(externalDate ? formatInputDate(externalDate) : '')
 
   return (
     <Field className='mx-auto'>
@@ -67,7 +67,7 @@ export function DatePicker({
                 onSelect={(date) => {
                   setDate(date)
                   onChange?.(date)
-                  setValue(formatDate(date))
+                  setValue(formatInputDate(date))
                   setOpen(false)
                 }}
               />

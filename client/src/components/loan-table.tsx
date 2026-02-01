@@ -15,7 +15,7 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table'
 import { z } from 'zod'
-import { loanTableSchema } from '@/constants/schema'
+import { LoanTable as LoanTableSchema } from '@/constants/schema'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -31,7 +31,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
 
-const columns: ColumnDef<z.infer<typeof loanTableSchema>>[] = [
+const columns: ColumnDef<LoanTableSchema>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -74,7 +74,7 @@ const columns: ColumnDef<z.infer<typeof loanTableSchema>>[] = [
   {
     accessorKey: 'current_balance',
     header: () => <div>Current Balance</div>,
-    cell: ({ row }) => <div className='text font-medium'>${row.original.current_balance}</div>,
+    cell: ({ row }) => <div className='text font-medium'>{row.original.current_balance}</div>,
   },
   {
     accessorKey: 'interest_rate',
@@ -89,27 +89,27 @@ const columns: ColumnDef<z.infer<typeof loanTableSchema>>[] = [
   {
     accessorKey: 'starting_principal',
     header: () => <div>Starting Principal</div>,
-    cell: ({ row }) => <div>${row.original.starting_principal}</div>,
+    cell: ({ row }) => <div>{row.original.starting_principal}</div>,
   },
   {
     accessorKey: 'remaining_principal',
     header: () => <div>Remaining Principal</div>,
-    cell: ({ row }) => <div>${row.original.remaining_principal}</div>,
+    cell: ({ row }) => <div>{row.original.remaining_principal}</div>,
   },
   {
     accessorKey: 'accrued_interest',
     header: () => <div>Accrued Interest</div>,
-    cell: ({ row }) => <div>${row.original.accrued_interest}</div>,
+    cell: ({ row }) => <div>{row.original.accrued_interest}</div>,
   },
   {
     accessorKey: 'minimun_payment',
     header: () => <div>Minimum Payment</div>,
-    cell: ({ row }) => <div>${row.original.minimum_payment}</div>,
+    cell: ({ row }) => <div>{row.original.minimum_payment}</div>,
   },
   {
     accessorKey: 'extra_payment',
     header: () => <div>Extra Payment</div>,
-    cell: ({ row }) => <div>${row.original.extra_payment}</div>,
+    cell: ({ row }) => <div>{row.original.extra_payment}</div>,
   },
   {
     accessorKey: 'start_date',
@@ -144,7 +144,7 @@ const columns: ColumnDef<z.infer<typeof loanTableSchema>>[] = [
   },
 ]
 
-export function LoanTable({ data: initialData }: { data: z.infer<typeof loanTableSchema>[] }) {
+export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
   const [data, setData] = useState(() => initialData)
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})

@@ -1,46 +1,58 @@
 import { LoanTable } from '@/components/loan-table'
+import { LoanDb } from '@/constants/schema'
+import { dbToTable } from '@/lib/utils'
 
 export default function Loans() {
-  const data = [
+  const data: LoanDb[] = [
     {
+      id: BigInt(25325),
+      user_id: BigInt(623852450),
       name: 'Loan1',
-      current_balance: '13,053.23',
-      interest_rate: '10.5%',
       lender: 'Sallie Mae',
-      starting_principal: '15,000',
-      remaining_principal: '12,423.09',
-      accrued_interest: '2,287.45',
-      payoff_date: '12/6/2035',
-      minimum_payment: '193.23',
-      extra_payment: '200',
-      start_date: '12/6/2025',
+      starting_principal: 15000,
+      current_principal: 12423.09,
+      accrued_interest: 2287.45,
+      interest_rate: 10.5,
+      minimum_payment: 193.23,
+      extra_payment: 200,
+      start_date: new Date('12/6/2025'),
+      payoff_date: new Date('12/6/2035'),
     },
     {
+      id: BigInt(324545),
+      user_id: BigInt(435661),
       name: 'Loan2',
-      current_balance: '7,723.23',
-      interest_rate: '11.5%',
       lender: 'Sallie Mae',
-      starting_principal: '9,000',
-      remaining_principal: '6,433.09',
-      accrued_interest: '2,098.45',
-      payoff_date: '12/6/2037',
-      minimum_payment: '65.72',
-      extra_payment: '0',
-      start_date: '12/25/2025',
+      starting_principal: 9000,
+      current_principal: 6433.09,
+      accrued_interest: 2098.45,
+      interest_rate: 11.5,
+      minimum_payment: 65.72,
+      extra_payment: 0,
+      start_date: new Date('12/25/2025'),
+      payoff_date: new Date('12/6/2037'),
     },
     {
+      id: BigInt(3453),
+      user_id: BigInt(4325043754),
       name: 'Loan3',
-      current_balance: '10,778.98',
-      interest_rate: '11.75%',
       lender: 'Sallie Mae',
-      starting_principal: '12,000',
-      remaining_principal: '9,773.09',
-      accrued_interest: '1,386.45',
-      payoff_date: '12/6/2040',
-      minimum_payment: '198.02',
-      extra_payment: '50',
-      start_date: '12/6/2025',
+      starting_principal: 12000,
+      current_principal: 9773.09,
+      accrued_interest: 1386.45,
+      interest_rate: 11.75,
+      minimum_payment: 198.02,
+      extra_payment: 50,
+      start_date: new Date('12/6/2025'),
+      payoff_date: new Date('12/6/2040'),
     },
   ]
-  return <LoanTable data={data} />
+
+  const tableData = data.map(dbToTable)
+  return (
+    <>
+      <LoanTable data={tableData} />
+      totals
+    </>
+  )
 }
