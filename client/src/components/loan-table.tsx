@@ -14,7 +14,6 @@ import {
   type SortingState,
   type VisibilityState,
 } from '@tanstack/react-table'
-import { z } from 'zod'
 import { LoanTable as LoanTableSchema } from '@/constants/schema'
 
 import { Button } from '@/components/ui/button'
@@ -27,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
 
@@ -248,6 +247,17 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
                 </TableRow>
               )}
             </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={2}>Totals</TableCell>
+                <TableCell colSpan={3}>$2,500</TableCell>
+                <TableCell>$20,000.00</TableCell>
+                <TableCell>$14,435.65</TableCell>
+                <TableCell>$$4,342.98</TableCell>
+                <TableCell>$1,023</TableCell>
+                <TableCell colSpan={4}>$500</TableCell>
+              </TableRow>
+            </TableFooter>
           </Table>
         </div>
         <div className='flex items-center justify-between px-4'>
