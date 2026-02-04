@@ -1,6 +1,6 @@
 import { LoanTable } from '@/components/loan-table'
 import { LoanDb } from '@/constants/schema'
-import { dbToTable } from '@/lib/utils'
+import { calculateTotals, dbToTable } from '@/lib/utils'
 
 export default function Loans() {
   const data: LoanDb[] = [
@@ -48,7 +48,9 @@ export default function Loans() {
     },
   ]
 
+  data.push(calculateTotals(data))
   const tableData = data.map(dbToTable)
+
   return (
     <>
       <LoanTable data={tableData} />

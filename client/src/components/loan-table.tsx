@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
 
@@ -44,15 +44,23 @@ const columns: ColumnDef<LoanTableSchema>[] = [
         />
       </div>
     ),
-    cell: ({ row }) => (
-      <div className='flex items-center justify-center'>
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Select row'
-        />
-      </div>
-    ),
+    cell: ({ row }) => {
+      const isTotal = row.getValue('name') === 'Totals'
+
+      if (isTotal) {
+        return <div className='flex items-center justify-center'></div>
+      }
+
+      return (
+        <div className='flex items-center justify-center'>
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label='Select row'
+          />
+        </div>
+      )
+    },
     enableSorting: false,
     enableHiding: false,
   },
@@ -122,23 +130,35 @@ const columns: ColumnDef<LoanTableSchema>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant='ghost' className='data-[state=open]:bg-muted text-muted-foreground flex size-8' size='icon'>
-            <EllipsisVertical />
-            <span className='sr-only'>Open menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-32'>
-          <TableCellViewer data={row.original}>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
-          </TableCellViewer>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant='destructive'>Delete</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+    cell: ({ row }) => {
+      const isTotal = row.getValue('name') === 'Totals'
+
+      if (isTotal) {
+        return <div className='flex items-center justify-center'></div>
+      }
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant='ghost'
+              className='data-[state=open]:bg-muted text-muted-foreground flex size-8'
+              size='icon'
+            >
+              <EllipsisVertical />
+              <span className='sr-only'>Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end' className='w-32'>
+            <TableCellViewer data={row.original}>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
+            </TableCellViewer>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant='destructive'>Delete</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
     enableHiding: false,
   },
 ]
@@ -215,7 +235,7 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
         </div>
       </div>
       <div className='relative flex flex-col gap-4 px-4 lg:px-6'>
-        <div className='overflow-x-hidden rounded-lg border'>
+        <div className='overflow-x-hidden rounded-2xl border'>
           <Table>
             <TableHeader className='bg-muted sticky top-0 z-10'>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -232,13 +252,21 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                table.getRowModel().rows.map((row) => {
+                  const isTotal = row.getValue('name') === 'Totals'
+
+                  return (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      className={isTotal ? 'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0' : ''}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  )
+                })
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className='h-24 text-center'>
@@ -247,22 +275,11 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
                 </TableRow>
               )}
             </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={2}>Totals</TableCell>
-                <TableCell colSpan={3}>$2,500</TableCell>
-                <TableCell>$20,000.00</TableCell>
-                <TableCell>$14,435.65</TableCell>
-                <TableCell>$$4,342.98</TableCell>
-                <TableCell>$1,023</TableCell>
-                <TableCell colSpan={4}>$500</TableCell>
-              </TableRow>
-            </TableFooter>
           </Table>
         </div>
         <div className='flex items-center justify-between px-4'>
           <div className='text-muted-foreground hidden flex-1 text-sm lg:flex'>
-            {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
+            {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length - 1} row(s)
             selected.
           </div>
           {table.getFilteredSelectedRowModel().rows.length > 0 && <Button variant='destructive'>Delete Loan(s)</Button>}

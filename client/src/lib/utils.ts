@@ -25,7 +25,7 @@ export function dbToTable(loan: LoanDb): LoanTable {
     name: loan.name,
     lender: loan.lender || '',
     current_balance: formatCurrency(loan.current_principal + loan.accrued_interest),
-    interest_rate: `${loan.interest_rate}%`,
+    interest_rate: loan.interest_rate ? `${loan.interest_rate}%` : '',
     starting_principal: formatCurrency(loan.starting_principal),
     remaining_principal: formatCurrency(loan.current_principal),
     accrued_interest: formatCurrency(loan.accrued_interest),
@@ -36,22 +36,25 @@ export function dbToTable(loan: LoanDb): LoanTable {
   }
 }
 
-export function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
+export function formatCurrency(amount: number) {
+  if (amount) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount)
+  }
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
-    month: 'numeric',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  if (date) {
+    return date.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }
 }
 
-// For form submissions (creating new loan)
 export function formToDb(form: LoanForm, userId: bigint): Omit<LoanDb, 'id'> {
   return {
     user_id: userId,
@@ -88,13 +91,46 @@ export function tableToForm(loan: LoanTable): LoanForm {
 }
 
 function parseCurrency(value: string): number {
-  return parseFloat(value.replace(/\$/g, '').replace(/,/g, '').trim())
+  if (value) {
+    return parseFloat(value.replace(/\$/g, '').replace(/,/g, '').trim())
+  }
 }
 
 function parsePercentage(value: string): number {
-  return parseFloat(value.replace('%', ''))
+  if (value) {
+    return parseFloat(value.replace('%', ''))
+  }
 }
 
 function parseDate(value: string): Date {
-  return new Date(value)
+  if (value) {
+    return new Date(value)
+  }
+}
+
+export function calculateTotals(loans: LoanDb[]): LoanDb {
+  let totals: LoanDb = {
+    id: BigInt(-1),
+    user_id: loans[0].user_id,
+    name: 'Totals',
+    lender: '',
+    starting_principal: 0,
+    current_principal: 0,
+    accrued_interest: 0,
+    interest_rate: null,
+    minimum_payment: 0,
+    extra_payment: 0,
+    start_date: null,
+    payoff_date: null,
+  }
+
+  for (const loan of loans) {
+    totals.starting_principal += loan.starting_principal
+    totals.current_principal += loan.current_principal
+    totals.accrued_interest += loan.accrued_interest
+    totals.minimum_payment += loan.minimum_payment
+    totals.extra_payment += loan.extra_payment
+  }
+
+  return totals
 }
