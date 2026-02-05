@@ -124,6 +124,11 @@ const columns: ColumnDef<LoanTableSchema>[] = [
     cell: ({ row }) => <div>{row.original.start_date}</div>,
   },
   {
+    accessorKey: 'next_payment_date',
+    header: 'Next Payment Date',
+    cell: ({ row }) => <div>{row.original.next_payment_date}</div>,
+  },
+  {
     accessorKey: 'payoff_date',
     header: 'Payoff Date',
     cell: ({ row }) => <div>{row.original.payoff_date}</div>,
