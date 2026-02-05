@@ -130,6 +130,13 @@ export function TableCellViewer({
                 />
               </div>
             </div>
+            <div className='flex flex-col gap-3'>
+              <Label htmlFor='next_payment_date'>Next Payment Date</Label>
+              <DatePicker
+                value={form.watch('next_payment_date')}
+                onChange={(val) => form.setValue('next_payment_date', val)}
+              />
+            </div>
           </form>
         </div>
         <DrawerFooter>

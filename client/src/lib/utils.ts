@@ -24,7 +24,7 @@ export function dbToTable(loan: LoanDb): LoanTable {
     id: loan.id.toString(),
     name: loan.name,
     lender: loan.lender || '',
-    current_balance: formatCurrency(loan.current_principal + loan.accrued_interest),
+    current_balance: formatCurrency(loan.current_balance),
     interest_rate: loan.interest_rate ? `${loan.interest_rate}%` : '',
     starting_principal: formatCurrency(loan.starting_principal),
     remaining_principal: formatCurrency(loan.current_principal),
@@ -32,6 +32,7 @@ export function dbToTable(loan: LoanDb): LoanTable {
     minimum_payment: formatCurrency(loan.minimum_payment),
     extra_payment: formatCurrency(loan.extra_payment || 0),
     start_date: formatDate(loan.start_date),
+    next_payment_date: getNextPaymentDate(loan.payment_day_of_month),
     payoff_date: formatDate(loan.payoff_date),
   }
 }
@@ -55,7 +56,26 @@ function formatDate(date: Date): string {
   }
 }
 
-export function formToDb(form: LoanForm, userId: bigint): Omit<LoanDb, 'id'> {
+function getNextPaymentDate(dayOfMonth: number): string {
+  if (dayOfMonth === 0) {
+    return ''
+  }
+
+  const today = new Date()
+  const result = new Date(today.getFullYear(), today.getMonth(), dayOfMonth)
+
+  if (result <= today) {
+    result.setMonth(result.getMonth() + 1)
+  }
+
+  return result.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+export function formToDb(form: LoanForm, userId: bigint): Omit<LoanDb, 'id' | 'current_balance'> {
   return {
     user_id: userId,
     name: form.name,
@@ -65,9 +85,10 @@ export function formToDb(form: LoanForm, userId: bigint): Omit<LoanDb, 'id'> {
     accrued_interest: form.accrued_interest,
     interest_rate: form.interest_rate,
     minimum_payment: form.minimum_payment,
-    start_date: form.start_date,
-    payoff_date: form.payoff_date,
     extra_payment: form.extra_payment || null,
+    start_date: form.start_date,
+    payment_day_of_month: form.next_payment_date.getDate(),
+    payoff_date: form.payoff_date,
   }
 }
 
@@ -80,11 +101,12 @@ export function tableToForm(loan: LoanTable): LoanForm {
     lender: loan.lender,
     start_date: parseDate(loan.start_date),
     payoff_date: parseDate(loan.payoff_date),
+    next_payment_date: parseDate(loan.next_payment_date),
     starting_principal: parseCurrency(loan.starting_principal),
     remaining_principal: parseCurrency(loan.remaining_principal),
     accrued_interest: parseCurrency(loan.accrued_interest),
     interest_rate: parsePercentage(loan.interest_rate),
-    current_balance: parseCurrency(loan.remaining_principal) + parseCurrency(loan.accrued_interest),
+    current_balance: parseCurrency(loan.current_balance),
     minimum_payment: parseCurrency(loan.minimum_payment),
     extra_payment: parseCurrency(loan.extra_payment),
   }
@@ -118,9 +140,11 @@ export function calculateTotals(loans: LoanDb[]): LoanDb {
     current_principal: 0,
     accrued_interest: 0,
     interest_rate: null,
+    current_balance: 0,
     minimum_payment: 0,
     extra_payment: 0,
     start_date: null,
+    payment_day_of_month: 0,
     payoff_date: null,
   }
 
@@ -128,6 +152,7 @@ export function calculateTotals(loans: LoanDb[]): LoanDb {
     totals.starting_principal += loan.starting_principal
     totals.current_principal += loan.current_principal
     totals.accrued_interest += loan.accrued_interest
+    totals.current_balance += loan.current_balance
     totals.minimum_payment += loan.minimum_payment
     totals.extra_payment += loan.extra_payment
   }
