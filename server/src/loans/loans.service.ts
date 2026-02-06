@@ -11,8 +11,16 @@ export class LoansService {
     return 'This action adds a new loan';
   }
 
-  findAll() {
-    return `This action returns all loans`;
+  async findAll(userId: BigInt) {
+    return await this.db.query(
+      `
+      SELECT id, user_id, name, lender, starting_principal, current_principal, accrued_interest,
+        interest_rate, current_balance, minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
+      FROM loans
+      WHERE user_id = $1;
+      `,
+      [userId],
+    );
   }
 
   findOne(id: number) {

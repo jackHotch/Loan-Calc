@@ -1,4 +1,3 @@
-// users/users.controller.ts
 import { Controller, Post, Body, Headers } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { Webhook } from 'svix';
@@ -14,7 +13,6 @@ export class WebhookController {
     @Headers('svix-timestamp') svixTimestamp: string,
     @Headers('svix-signature') svixSignature: string,
   ) {
-    // Verify webhook signature
     const webhook = new Webhook(process.env.CLERK_WEBHOOK_SECRET!);
 
     try {

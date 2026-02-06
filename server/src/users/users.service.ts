@@ -18,6 +18,15 @@ export class UsersService {
     return result[0];
   }
 
+  async getInternalUserId(userId: string) {
+    const result = await this.db.query(
+      `SELECT id FROM users WHERE clerk_id = $1`,
+      [userId],
+    );
+
+    return result[0].id;
+  }
+
   async createUser(data) {
     return await this.db.query(
       `
