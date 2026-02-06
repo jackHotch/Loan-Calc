@@ -20,8 +20,8 @@ export class LoansController {
   constructor(private readonly loansService: LoansService) {}
 
   @Post()
-  create(@Body() createLoanDto: CreateLoanDto) {
-    return this.loansService.create(createLoanDto);
+  create(@User() userId: BigInt, @Body() createLoanDto: CreateLoanDto) {
+    return this.loansService.create(userId, createLoanDto);
   }
 
   @Get()
@@ -30,8 +30,8 @@ export class LoansController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.loansService.findOne(+id);
+  findOne(@User() userId: BigInt, @Param('id') id: string) {
+    return this.loansService.findOne(userId, +id);
   }
 
   @Patch(':id')
