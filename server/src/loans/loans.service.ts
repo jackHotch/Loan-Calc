@@ -1,11 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
 import { DatabaseService } from '../database/database.service';
+import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
+import { PaymentScheduleInput } from 'src/lib/types/payment-schedule.types';
+import { LoanDb } from 'src/lib/types/loan.types';
 
 @Injectable()
 export class LoansService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private paymentSchedules: PaymentScheduleService,
+  ) {}
 
   async create(userId: BigInt, loan: CreateLoanDto) {
     return await this.db.query(
@@ -43,8 +49,8 @@ export class LoansService {
     );
   }
 
-  async findOne(userId: BigInt, loanId: number) {
-    return await this.db.query(
+  async findOne(userId: BigInt, loanId: number): Promise<LoanDb> {
+    const results = await this.db.query(
       `
       SELECT id, user_id, name, lender, starting_principal, current_principal, accrued_interest,
         interest_rate, current_balance, minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
@@ -54,6 +60,33 @@ export class LoansService {
       `,
       [userId, loanId],
     );
+
+    const loan = results[0] as LoanDb | undefined;
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    return loan ?? null;
+  }
+
+  async calcSchedules(userId: BigInt, loanId: number) {
+    const loan: LoanDb = await this.findOne(userId, loanId);
+
+    const paymentScheduleInput: PaymentScheduleInput = {
+      current_principal: loan.current_principal,
+      accrued_interest: loan.accrued_interest,
+      interest_rate: loan.interest_rate,
+      start_date: loan.start_date,
+      payoff_date: loan.payoff_date,
+      minimum_payment: loan.minimum_payment,
+      extra_payment: loan.extra_payment,
+      extra_payment_start_date: loan.extra_payment_start_date,
+    };
+
+    const schedules =
+      this.paymentSchedules.calculatePaymentSchedule(paymentScheduleInput);
+
+    return schedules;
   }
 
   update(id: number, updateLoanDto: UpdateLoanDto) {
