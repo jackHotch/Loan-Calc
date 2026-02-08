@@ -1,27 +1,21 @@
-export interface PaymentScheduleInput {
-  current_principal: number;
-  accrued_interest: number;
-  interest_rate: number;
-  start_date: Date;
-  payoff_date: Date;
-  minimum_payment: number;
-  extra_payment: number;
-  extra_payment_start_date: Date;
-}
+import { z } from 'zod';
 
-export interface PaymentScheduleEntry {
-  paymentNumber: number;
-  paymentDate: Date;
-  principal_paid: number;
-  interest_paid: number;
-  total_extra_payment: number;
-  remaining_principal: number;
-  remaining_interest: number;
-}
+export const loanDbSchema = z.object({
+  id: z.bigint(),
+  user_id: z.bigint(),
+  name: z.string(),
+  lender: z.string().nullable(),
+  starting_principal: z.number(),
+  current_principal: z.number(),
+  accrued_interest: z.number(),
+  interest_rate: z.number(),
+  current_balance: z.number(),
+  minimum_payment: z.number(),
+  extra_payment: z.number().nullable(),
+  extra_payment_start_date: z.date().nullable(),
+  start_date: z.date(),
+  payment_day_of_month: z.number(),
+  payoff_date: z.date(),
+});
 
-export interface CalculateScheduleOptions {
-  startFromPaymentNumber?: number;
-  startingPrincipal?: number;
-  startingInterest?: number;
-  startDate?: Date | string;
-}
+export type LoanDb = z.infer<typeof loanDbSchema>;
