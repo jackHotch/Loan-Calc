@@ -29,11 +29,6 @@ export class LoansController {
     return this.loansService.findAll(userId);
   }
 
-  @Get('/schedule/:id')
-  calcSchedules(@User() userId: BigInt, @Param('id') id: string) {
-    return this.loansService.calcSchedules(userId, +id);
-  }
-
   @Get(':id')
   findOne(@User() userId: BigInt, @Param('id') id: string) {
     return this.loansService.findOne(userId, +id);

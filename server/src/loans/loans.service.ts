@@ -14,11 +14,11 @@ export class LoansService {
   ) {}
 
   async create(userId: BigInt, loan: CreateLoanDto) {
-    return await this.db.query(
+    const result = await this.db.query(
       `
-      INSERT INTO loans (user_id, name, lender, starting_principal, current_principal, accrued_interest,
+      INSERT INTO loans (user_id, name, lender, starting_principal, current_principal,
         interest_rate, minimum_payment, extra_payment, start_date, payment_day_of_month, payoff_date)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *;`,
       [
         userId,
@@ -26,7 +26,6 @@ export class LoansService {
         loan.lender,
         loan.starting_principal,
         loan.current_principal,
-        loan.accrued_interest,
         loan.interest_rate,
         loan.minimum_payment,
         loan.extra_payment,
@@ -35,13 +34,23 @@ export class LoansService {
         loan.payoff_date,
       ],
     );
+
+    const createdLoan = result[0] as LoanDb;
+
+    const createdSchedule =
+      this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
+
+    return {
+      loan: createdLoan,
+      paymentSchedule: createdSchedule,
+    };
   }
 
   async findAll(userId: BigInt) {
     return await this.db.query(
       `
-      SELECT id, user_id, name, lender, starting_principal, current_principal, accrued_interest,
-        interest_rate, current_balance, minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
+      SELECT id, user_id, name, lender, starting_principal, current_principal, interest_rate,
+        minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
       FROM loans
       WHERE user_id = $1;
       `,
@@ -52,8 +61,8 @@ export class LoansService {
   async findOne(userId: BigInt, loanId: number): Promise<LoanDb> {
     const results = await this.db.query(
       `
-      SELECT id, user_id, name, lender, starting_principal, current_principal, accrued_interest,
-        interest_rate, current_balance, minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
+      SELECT id, user_id, name, lender, starting_principal, current_principal, interest_rate,
+        minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
       FROM loans
       WHERE user_id = $1
       AND id = $2;
@@ -67,26 +76,6 @@ export class LoansService {
     }
 
     return loan ?? null;
-  }
-
-  async calcSchedules(userId: BigInt, loanId: number) {
-    const loan: LoanDb = await this.findOne(userId, loanId);
-
-    const paymentScheduleInput: PaymentScheduleInput = {
-      current_principal: loan.current_principal,
-      accrued_interest: loan.accrued_interest,
-      interest_rate: loan.interest_rate,
-      start_date: loan.start_date,
-      payoff_date: loan.payoff_date,
-      minimum_payment: loan.minimum_payment,
-      extra_payment: loan.extra_payment,
-      extra_payment_start_date: loan.extra_payment_start_date,
-    };
-
-    const schedules =
-      this.paymentSchedules.calculatePaymentSchedule(paymentScheduleInput);
-
-    return schedules;
   }
 
   update(id: number, updateLoanDto: UpdateLoanDto) {
