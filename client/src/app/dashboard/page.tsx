@@ -1,5 +1,6 @@
+'use client'
+
 import { SectionCards } from '@/components/section-cards'
-import { SiteHeader } from '@/components/site-header'
 
 export default function Dashboard() {
   return (

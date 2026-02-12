@@ -39,7 +39,6 @@ export class UsersService {
   }
 
   async updateUser(data) {
-    console.log(data);
     return await this.db.query(
       `
       UPDATE users

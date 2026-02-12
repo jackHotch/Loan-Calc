@@ -32,14 +32,12 @@ export class PaymentScheduleService {
     let monthlyRate = new Decimal(loan.interest_rate)
       .div(100)
       .div(12)
-      .toDecimalPlaces(2);
-    console.log('monthlyrate', monthlyRate);
+      .toDecimalPlaces(3);
     let paymentNumber = startingPaymentNumber;
 
     const maxPayments = 1000;
 
     while (remainingPrincipal.gt(0.01) && paymentNumber < maxPayments) {
-      console.log('another payment started');
       let extraPayment: Decimal =
         loan.extra_payment &&
         (!loan.extra_payment_start_date ||
@@ -47,18 +45,13 @@ export class PaymentScheduleService {
           ? new Decimal(loan.extra_payment)
           : new Decimal(0);
 
-      console.log('int', loan.interest_rate);
       const monthlyInterestPaid = remainingPrincipal
         .mul(monthlyRate)
         .toDecimalPlaces(2);
 
-      console.log('interest', monthlyInterestPaid);
-
       let totalPayment: Decimal = new Decimal(loan.minimum_payment).plus(
         extraPayment,
       );
-
-      console.log('totalpayment', totalPayment);
 
       let monthlyPrincipalPaid = new Decimal(totalPayment)
         .minus(monthlyInterestPaid)
@@ -84,7 +77,6 @@ export class PaymentScheduleService {
       paymentNumber++;
     }
 
-    console.log('end of schedule', schedule);
     return schedule;
   }
 
