@@ -35,8 +35,13 @@ export class LoansController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateLoanDto: UpdateLoanDto) {
-    return this.loansService.update(+id, updateLoanDto);
+  update(
+    @Param('id') id: string,
+    @Body() body: { loanId: number; loanData: UpdateLoanDto },
+  ) {
+    console.log('loanid', body.loanId);
+    console.log('loandata', body.loanData);
+    return this.loansService.update(+id, body.loanId, body.loanData);
   }
 
   @Delete(':id')

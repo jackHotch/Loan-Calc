@@ -18,10 +18,6 @@ export class CreateLoanDto {
   current_principal: number;
 
   @IsNumber()
-  @Min(0)
-  accrued_interest: number;
-
-  @IsNumber()
   interest_rate: number;
 
   @IsNumber()
@@ -32,6 +28,10 @@ export class CreateLoanDto {
   @IsNumber()
   @Min(0)
   extra_payment?: number | null;
+
+  @Type(() => Date)
+  @IsDate()
+  extra_payment_start_date: Date;
 
   @Type(() => Date)
   @IsDate()
