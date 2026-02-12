@@ -14,7 +14,6 @@ import {
 import { loanFormSchema, LoanTable } from '@/constants/schema'
 import { ReactNode } from 'react'
 import { DatePicker } from './date-picker'
-import { useAuth } from '@clerk/nextjs'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
@@ -30,8 +29,6 @@ export function TableCellViewer({
   isNewLoan?: boolean
   children: ReactNode
 }) {
-  const { userId } = useAuth()
-
   const form = useForm({
     resolver: zodResolver(loanFormSchema),
     defaultValues: isNewLoan
@@ -42,7 +39,6 @@ export function TableCellViewer({
           payoff_date: null,
           starting_principal: null,
           remaining_principal: null,
-          accrued_interest: null,
           interest_rate: null,
           minimum_payment: null,
           extra_payment: null,

@@ -38,7 +38,7 @@ export class LoansService {
     const createdLoan = result[0] as LoanDb;
 
     const createdSchedule =
-      this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
+      await this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
 
     return {
       loan: createdLoan,
