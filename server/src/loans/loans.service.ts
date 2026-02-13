@@ -78,7 +78,7 @@ export class LoansService {
     return loan ?? null;
   }
 
-  async update(userId: number, loanId: number, loan: UpdateLoanDto) {
+  async update(userId: BigInt, loanId: number, loan: UpdateLoanDto) {
     const needsRecalculation =
       loan.starting_principal !== undefined ||
       loan.current_principal !== undefined ||
@@ -121,8 +121,6 @@ export class LoansService {
         userId,
       ],
     );
-
-    console.log(loan.starting_principal);
   }
 
   remove(id: number) {
