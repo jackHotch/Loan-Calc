@@ -36,12 +36,11 @@ export class LoansController {
 
   @Patch(':id')
   update(
+    @User() userId: BigInt,
     @Param('id') id: string,
-    @Body() body: { loanId: number; loanData: UpdateLoanDto },
+    @Body() loanData: UpdateLoanDto,
   ) {
-    console.log('loanid', body.loanId);
-    console.log('loandata', body.loanData);
-    return this.loansService.update(+id, body.loanId, body.loanData);
+    return this.loansService.update(userId, +id, loanData);
   }
 
   @Delete(':id')
