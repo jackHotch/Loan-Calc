@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/providers/theme-provider'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
+import { Providers } from './providers'
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -30,14 +31,16 @@ export default function RootLayout({
       <html lang='en' className={cn(manrope.className, figtree.variable)} suppressHydrationWarning>
         <body>
           <ThemeProvider attribute='class' defaultTheme='system' enableSystem disableTransitionOnChange>
-            <Header />
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <SiteHeader />
-                {children}
-              </SidebarInset>
-            </SidebarProvider>
+            <Providers>
+              <Header />
+              <SidebarProvider>
+                <AppSidebar />
+                <SidebarInset>
+                  <SiteHeader />
+                  {children}
+                </SidebarInset>
+              </SidebarProvider>
+            </Providers>
           </ThemeProvider>
         </body>
       </html>

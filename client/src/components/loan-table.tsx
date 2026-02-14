@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
 
 const columns: ColumnDef<LoanTableSchema>[] = [
@@ -79,11 +79,6 @@ const columns: ColumnDef<LoanTableSchema>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: 'current_balance',
-    header: () => <div>Current Balance</div>,
-    cell: ({ row }) => <div className='text font-medium'>{row.original.current_balance}</div>,
-  },
-  {
     accessorKey: 'interest_rate',
     header: () => <div>Interest Rate</div>,
     cell: ({ row }) => <div>{row.original.interest_rate}</div>,
@@ -102,11 +97,6 @@ const columns: ColumnDef<LoanTableSchema>[] = [
     accessorKey: 'remaining_principal',
     header: () => <div>Remaining Principal</div>,
     cell: ({ row }) => <div>{row.original.remaining_principal}</div>,
-  },
-  {
-    accessorKey: 'accrued_interest',
-    header: () => <div>Accrued Interest</div>,
-    cell: ({ row }) => <div>{row.original.accrued_interest}</div>,
   },
   {
     accessorKey: 'minimun_payment',
@@ -169,11 +159,17 @@ const columns: ColumnDef<LoanTableSchema>[] = [
 ]
 
 export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
-  const [data, setData] = useState(() => initialData)
+  const [data, setData] = useState(() => initialData || [])
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+
+  useEffect(() => {
+    if (initialData) {
+      setData(initialData)
+    }
+  }, [initialData])
 
   const table = useReactTable({
     data,
@@ -257,12 +253,12 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => {
+                table.getRowModel().rows.map((row, key) => {
                   const isTotal = row.getValue('name') === 'Totals'
 
                   return (
                     <TableRow
-                      key={row.id}
+                      key={key}
                       data-state={row.getIsSelected() && 'selected'}
                       className={isTotal ? 'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0' : ''}
                     >

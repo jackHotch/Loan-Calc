@@ -19,12 +19,10 @@ export const loanDbSchema = z.object({
 export const loanTableSchema = z.object({
   id: z.string(),
   name: z.string(),
-  current_balance: z.string(),
   interest_rate: z.string(),
   lender: z.string(),
   starting_principal: z.string(),
   remaining_principal: z.string(),
-  accrued_interest: z.string(),
   minimum_payment: z.string(),
   extra_payment: z.string(),
   start_date: z.string(),
@@ -41,9 +39,7 @@ export const loanFormSchema = z.object({
   next_payment_date: z.date(),
   starting_principal: z.number().positive(),
   remaining_principal: z.number().nonnegative(),
-  accrued_interest: z.number().nonnegative(),
   interest_rate: z.number().min(0).max(100),
-  current_balance: z.number().nonnegative(),
   minimum_payment: z.number().positive(),
   extra_payment: z.number().nonnegative().optional(),
 })
