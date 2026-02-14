@@ -10,13 +10,6 @@ export class UsersController {
     return this.usersService.getUser(data);
   }
 
-  @Get('/internal')
-  getInternalUser() {
-    return this.usersService.getInternalUserId(
-      'user_38ltyeOClJUBkxsmbwvMPjZv53A',
-    );
-  }
-
   @Post()
   createUser(@Body() data) {
     return this.usersService.createUser(data);
