@@ -9,6 +9,8 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SiteHeader } from '@/components/site-header'
 import { Providers } from './providers'
+import { Toaster } from '@/components/ui/sonner'
+import { CircleCheck, CircleX } from 'lucide-react'
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -37,6 +39,12 @@ export default function RootLayout({
                 <AppSidebar />
                 <SidebarInset>
                   <SiteHeader />
+                  <Toaster
+                    icons={{
+                      success: <CircleCheck color='green' size={18} />,
+                      error: <CircleX color='red' size={18} />,
+                    }}
+                  />
                   {children}
                 </SidebarInset>
               </SidebarProvider>

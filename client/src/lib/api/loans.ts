@@ -15,3 +15,17 @@ export const useLoans = () => {
     },
   })
 }
+
+export const useDeleteLoan = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<void, ApiError, number>({
+    mutationFn: async (id) => {
+      await axios.delete(`/loans/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] })
+    },
+  })
+}

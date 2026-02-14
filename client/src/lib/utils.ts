@@ -148,7 +148,5 @@ export function calculateTotals(loans: LoanDb[]): LoanDb {
     totals.extra_payment += Number(loan.extra_payment)
   }
 
-  console.log('total', totals)
-
   return totals
 }
