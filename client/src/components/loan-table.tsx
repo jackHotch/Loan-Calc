@@ -29,134 +29,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useEffect, useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
-
-const columns: ColumnDef<LoanTableSchema>[] = [
-  {
-    id: 'select',
-    header: ({ table }) => (
-      <div className='flex items-center justify-center'>
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all'
-        />
-      </div>
-    ),
-    cell: ({ row }) => {
-      const isTotal = row.getValue('name') === 'Totals'
-
-      if (isTotal) {
-        return <div className='flex items-center justify-center'></div>
-      }
-
-      return (
-        <div className='flex items-center justify-center'>
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label='Select row'
-          />
-        </div>
-      )
-    },
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: 'name',
-    header: 'Loan Name',
-    cell: ({ row }) => {
-      return (
-        <TableCellViewer data={row.original}>
-          <Button variant='link' className='text-foreground w-fit px-0 text-left'>
-            {row.original.name}
-          </Button>
-        </TableCellViewer>
-      )
-    },
-    enableHiding: false,
-  },
-  {
-    accessorKey: 'interest_rate',
-    header: () => <div>Interest Rate</div>,
-    cell: ({ row }) => <div>{row.original.interest_rate}</div>,
-  },
-  {
-    accessorKey: 'lender',
-    header: 'Lender',
-    cell: ({ row }) => <div>{row.original.lender}</div>,
-  },
-  {
-    accessorKey: 'starting_principal',
-    header: () => <div>Starting Principal</div>,
-    cell: ({ row }) => <div>{row.original.starting_principal}</div>,
-  },
-  {
-    accessorKey: 'remaining_principal',
-    header: () => <div>Remaining Principal</div>,
-    cell: ({ row }) => <div>{row.original.remaining_principal}</div>,
-  },
-  {
-    accessorKey: 'minimun_payment',
-    header: () => <div>Minimum Payment</div>,
-    cell: ({ row }) => <div>{row.original.minimum_payment}</div>,
-  },
-  {
-    accessorKey: 'extra_payment',
-    header: () => <div>Extra Payment</div>,
-    cell: ({ row }) => <div>{row.original.extra_payment}</div>,
-  },
-  {
-    accessorKey: 'start_date',
-    header: 'Start Date',
-    cell: ({ row }) => <div>{row.original.start_date}</div>,
-  },
-  {
-    accessorKey: 'next_payment_date',
-    header: 'Next Payment Date',
-    cell: ({ row }) => <div>{row.original.next_payment_date}</div>,
-  },
-  {
-    accessorKey: 'payoff_date',
-    header: 'Payoff Date',
-    cell: ({ row }) => <div>{row.original.payoff_date}</div>,
-  },
-  {
-    id: 'actions',
-    cell: ({ row }) => {
-      const isTotal = row.getValue('name') === 'Totals'
-
-      if (isTotal) {
-        return <div className='flex items-center justify-center'></div>
-      }
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant='ghost'
-              className='data-[state=open]:bg-muted text-muted-foreground flex size-8'
-              size='icon'
-            >
-              <EllipsisVertical />
-              <span className='sr-only'>Open menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='end' className='w-32'>
-            <TableCellViewer data={row.original}>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
-            </TableCellViewer>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant='destructive'>Delete</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
-    enableHiding: false,
-  },
-]
+import { useDeleteLoan } from '@/lib/api/loans'
+import { DeleteLoans } from './delete-loans'
+import { toast } from 'sonner'
 
 export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
   const [data, setData] = useState(() => initialData || [])
@@ -164,12 +39,173 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
+  const deleteLoan = useDeleteLoan()
 
   useEffect(() => {
     if (initialData) {
       setData(initialData)
     }
   }, [initialData])
+
+  const handleDeleteLoan = async (loanId: string) => {
+    try {
+      await deleteLoan.mutateAsync(Number(loanId))
+      toast.success('Loan has been successfully deleted')
+    } catch (error) {
+      console.error('Failed to delete loan:', error)
+      toast.error('Failed to delete loan')
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    const selectedRows = table.getFilteredSelectedRowModel().rows
+    const selectedIds = selectedRows.map((row) => row.original.id)
+
+    try {
+      await Promise.all(selectedIds.map((id) => deleteLoan.mutateAsync(Number(id))))
+      toast.success('All loans have been deleted')
+      setRowSelection({})
+    } catch (error) {
+      console.error('Failed to delete loans:', error)
+      toast.error('Failed to delete some loans')
+    }
+  }
+
+  const columns: ColumnDef<LoanTableSchema>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <div className='flex items-center justify-center'>
+          <Checkbox
+            checked={
+              table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false
+            }
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label='Select all'
+          />
+        </div>
+      ),
+      cell: ({ row }) => {
+        const isTotal = row.getValue('name') === 'Totals'
+
+        if (isTotal) {
+          return <div className='flex items-center justify-center'></div>
+        }
+
+        return (
+          <div className='flex items-center justify-center'>
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+              aria-label='Select row'
+            />
+          </div>
+        )
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: 'name',
+      header: 'Loan Name',
+      cell: ({ row }) => {
+        return (
+          <TableCellViewer data={row.original}>
+            <Button variant='link' className='text-foreground w-fit px-0 text-left'>
+              {row.original.name}
+            </Button>
+          </TableCellViewer>
+        )
+      },
+      enableHiding: false,
+    },
+    {
+      accessorKey: 'lender',
+      header: 'Lender',
+      cell: ({ row }) => <div>{row.original.lender}</div>,
+    },
+    {
+      accessorKey: 'starting_principal',
+      header: () => <div>Starting Principal</div>,
+      cell: ({ row }) => <div>{row.original.starting_principal}</div>,
+    },
+    {
+      accessorKey: 'remaining_principal',
+      header: () => <div>Remaining Principal</div>,
+      cell: ({ row }) => <div>{row.original.remaining_principal}</div>,
+    },
+    {
+      accessorKey: 'interest_rate',
+      header: () => <div>Interest Rate</div>,
+      cell: ({ row }) => <div>{row.original.interest_rate}</div>,
+    },
+    {
+      accessorKey: 'minimun_payment',
+      header: () => <div>Minimum Payment</div>,
+      cell: ({ row }) => <div>{row.original.minimum_payment}</div>,
+    },
+    {
+      accessorKey: 'extra_payment',
+      header: () => <div>Extra Payment</div>,
+      cell: ({ row }) => <div>{row.original.extra_payment}</div>,
+    },
+    {
+      accessorKey: 'start_date',
+      header: 'Start Date',
+      cell: ({ row }) => <div>{row.original.start_date}</div>,
+    },
+    {
+      accessorKey: 'next_payment_date',
+      header: 'Next Payment Date',
+      cell: ({ row }) => <div>{row.original.next_payment_date}</div>,
+    },
+    {
+      accessorKey: 'payoff_date',
+      header: 'Payoff Date',
+      cell: ({ row }) => <div>{row.original.payoff_date}</div>,
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const isTotal = row.getValue('name') === 'Totals'
+
+        if (isTotal) {
+          return <div className='flex items-center justify-center'></div>
+        }
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant='ghost'
+                className='data-[state=open]:bg-muted text-muted-foreground flex size-8'
+                size='icon'
+              >
+                <EllipsisVertical />
+                <span className='sr-only'>Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end' className='w-32'>
+              <TableCellViewer data={row.original}>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
+              </TableCellViewer>
+              <DropdownMenuSeparator />
+              <DeleteLoans
+                deleteAction={() => {
+                  handleDeleteLoan(row.original.id)
+                }}
+              >
+                <DropdownMenuItem variant='destructive' onSelect={(e) => e.preventDefault()}>
+                  Delete
+                </DropdownMenuItem>
+              </DeleteLoans>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+      enableHiding: false,
+    },
+  ]
 
   const table = useReactTable({
     data,
@@ -285,7 +321,11 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
             {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length - 1} row(s)
             selected.
           </div>
-          {table.getFilteredSelectedRowModel().rows.length > 0 && <Button variant='destructive'>Delete Loan(s)</Button>}
+          {table.getFilteredSelectedRowModel().rows.length > 0 && (
+            <DeleteLoans deleteAction={() => handleDeleteSelected()}>
+              <Button variant='destructive'>Delete Loan(s)</Button>
+            </DeleteLoans>
+          )}
         </div>
       </div>
     </div>
