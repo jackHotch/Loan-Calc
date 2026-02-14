@@ -3,7 +3,6 @@ import { CreateLoanDto } from './dto/create-loan.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
 import { DatabaseService } from '../database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
-import { CalculateScheduleOptions } from 'src/lib/types/payment-schedule.types';
 import { LoanDb } from 'src/lib/types/loan.types';
 
 @Injectable()
@@ -17,8 +16,8 @@ export class LoansService {
     const result = await this.db.query(
       `
       INSERT INTO loans (user_id, name, lender, starting_principal, current_principal,
-        interest_rate, minimum_payment, extra_payment, start_date, payment_day_of_month, payoff_date)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        interest_rate, minimum_payment, extra_payment, start_date, payment_day_of_month)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *;`,
       [
         userId,
@@ -31,7 +30,6 @@ export class LoansService {
         loan.extra_payment,
         loan.start_date,
         loan.payment_day_of_month,
-        loan.payoff_date,
       ],
     );
 
@@ -40,8 +38,10 @@ export class LoansService {
     const createdSchedule =
       await this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
 
+    const finalLoan = await this.findOne(userId, Number(createdLoan.id));
+
     return {
-      loan: createdLoan,
+      loan: finalLoan,
       paymentSchedule: createdSchedule,
     };
   }
@@ -80,13 +80,11 @@ export class LoansService {
 
   async update(userId: BigInt, loanId: number, loan: UpdateLoanDto) {
     const needsRecalculation =
-      loan.starting_principal !== undefined ||
       loan.current_principal !== undefined ||
       loan.interest_rate !== undefined ||
       loan.minimum_payment !== undefined ||
       loan.extra_payment !== undefined ||
       loan.extra_payment_start_date !== undefined ||
-      loan.start_date !== undefined ||
       loan.payment_day_of_month !== undefined;
 
     const result = await this.db.query(
@@ -100,10 +98,9 @@ export class LoansService {
         extra_payment = COALESCE($7, extra_payment),
         extra_payment_start_date = COALESCE($8, extra_payment_start_date),
         start_date = COALESCE($9, start_date),
-        payment_day_of_month = COALESCE($10, payment_day_of_month),
-        payoff_date = COALESCE($11, payoff_date)
-      WHERE id = $12
-      AND user_id = $13
+        payment_day_of_month = COALESCE($10, payment_day_of_month)
+      WHERE id = $11
+      AND user_id = $12
       RETURNING *`,
       [
         loan.name,
@@ -116,14 +113,36 @@ export class LoansService {
         loan.extra_payment_start_date,
         loan.start_date,
         loan.payment_day_of_month,
-        loan.payoff_date,
         loanId,
         userId,
       ],
     );
+
+    let updatedLoan = result[0] as LoanDb;
+    let schedule;
+
+    if (needsRecalculation) {
+      schedule =
+        await this.paymentSchedules.generateScheduleForExistingLoan(
+          updatedLoan,
+        );
+      updatedLoan = await this.findOne(userId, Number(updatedLoan.id));
+    } else {
+      schedule = this.paymentSchedules.getSchedules(updatedLoan.id, 'loan');
+    }
+
+    return {
+      loan: updatedLoan,
+      paymentSchedule: schedule,
+    };
   }
 
   remove(id: number) {
     return `This action removes a #${id} loan`;
+  }
+
+  async findSchedules(id: number) {
+    const loan = await this.findOne(BigInt(14), id);
+    return await this.paymentSchedules.generateScheduleForExistingLoan(loan);
   }
 }

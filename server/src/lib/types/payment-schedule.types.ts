@@ -2,6 +2,7 @@ export interface PaymentScheduleInput {
   current_principal: number;
   interest_rate: number;
   start_date: Date;
+  payment_day_of_month: number;
   minimum_payment: number;
   extra_payment: number | null;
   extra_payment_start_date: Date | null;

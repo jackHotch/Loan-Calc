@@ -7,6 +7,7 @@ import {
 } from '../lib/types/payment-schedule.types';
 import { LoanDb } from 'src/lib/types/loan.types';
 import { DatabaseService } from 'src/database/database.service';
+import { getNewPaymentDate } from 'src/lib/utils';
 
 @Injectable()
 export class PaymentScheduleService {
@@ -28,7 +29,10 @@ export class PaymentScheduleService {
       : new Date(loan.start_date);
 
     let remainingPrincipal = startingPrincipal;
-    let paymentDate = new Date(startDate);
+    let paymentDate = getNewPaymentDate(
+      new Date(startDate),
+      loan.payment_day_of_month,
+    );
     let monthlyRate = new Decimal(loan.interest_rate)
       .div(100)
       .div(12)
@@ -85,6 +89,7 @@ export class PaymentScheduleService {
       current_principal: loan.current_principal,
       interest_rate: loan.interest_rate,
       start_date: loan.start_date,
+      payment_day_of_month: loan.payment_day_of_month,
       minimum_payment: loan.minimum_payment,
       extra_payment: loan.extra_payment,
       extra_payment_start_date: loan.extra_payment_start_date,
@@ -96,7 +101,68 @@ export class PaymentScheduleService {
     return this.saveSchedule(loan.id, schedule);
   }
 
-  saveSchedule(loanId: BigInt, schedule: PaymentScheduleEntry[]) {
+  async generateScheduleForExistingLoan(loan: LoanDb) {
+    const lastActualPayment = await this.db.query(
+      `
+      SELECT payment_number, payment_date, remaining_principal
+      FROM payment_schedules
+      WHERE loan_id = $1
+      AND is_actual = TRUE
+      ORDER BY payment_date DESC
+      LIMIT 1
+      `,
+      [loan.id],
+    );
+
+    const paymentScheduleInput: PaymentScheduleInput = {
+      current_principal: loan.current_principal,
+      interest_rate: loan.interest_rate,
+      start_date: loan.start_date,
+      payment_day_of_month: loan.payment_day_of_month,
+      minimum_payment: loan.minimum_payment,
+      extra_payment: loan.extra_payment,
+      extra_payment_start_date: loan.extra_payment_start_date,
+    };
+
+    let startFromPaymentNumber: number;
+    let startingPrincipal: number;
+    let startDate: Date;
+
+    if (lastActualPayment.length > 0) {
+      const lastPayment = lastActualPayment[0];
+      startFromPaymentNumber = lastPayment.payment_number + 1;
+      startingPrincipal = lastPayment.remaining_principal;
+      startDate = new Date(lastPayment.payment_date);
+      startDate.setMonth(startDate.getMonth() + 1);
+    } else {
+      startFromPaymentNumber = 1;
+      startingPrincipal = loan.starting_principal;
+      startDate = new Date(loan.start_date);
+    }
+
+    await this.db.query(
+      `
+      DELETE FROM payment_schedules
+      WHERE loan_id = $1
+      AND is_actual = FALSE
+      AND payment_number >= $2
+      `,
+      [loan.id, startFromPaymentNumber],
+    );
+
+    const schedules: PaymentScheduleEntry[] = this.calculatePaymentSchedule(
+      paymentScheduleInput,
+      {
+        startFromPaymentNumber,
+        startingPrincipal,
+        startDate,
+      },
+    );
+
+    return this.saveSchedule(loan.id, schedules);
+  }
+
+  async saveSchedule(loanId: BigInt, schedule: PaymentScheduleEntry[]) {
     const values = schedule
       .map((_, i) => {
         const offset = i * 6 + 2;
@@ -116,14 +182,55 @@ export class PaymentScheduleService {
       ]),
     ];
 
-    return this.db.query(
+    await this.db.query(
       `
       INSERT INTO payment_schedules (loan_id, payment_number, payment_date, principal_paid, 
         interest_paid, extra_payment, remaining_principal)
         VALUES ${values}
-        RETURNING *;
         `,
       params,
+    );
+
+    const payoffDate = schedule.at(-1)?.payment_date;
+
+    await this.db.query(
+      `
+      UPDATE loans 
+      SET payoff_date = $1
+      WHERE id = $2`,
+      [payoffDate, loanId],
+    );
+
+    return this.getSchedules(loanId, 'loan');
+  }
+
+  async getSchedules(id: BigInt, type: 'loan' | 'simulation') {
+    let idColumn: string;
+
+    if (type === 'loan') {
+      idColumn = 'loan_id';
+    } else {
+      idColumn = 'simulation_id';
+    }
+
+    return await this.db.query(
+      `
+      SELECT 
+        id,
+        ${idColumn}, 
+        payment_number, 
+        principal_paid,
+        interest_paid,
+        extra_payment,
+        total_payment,
+        remaining_principal,
+        payment_date,
+        is_actual
+      FROM payment_schedules
+      WHERE ${idColumn} = $1
+      ORDER BY payment_number
+      `,
+      [id],
     );
   }
 }
