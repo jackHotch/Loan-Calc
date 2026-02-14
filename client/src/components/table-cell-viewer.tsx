@@ -74,8 +74,11 @@ export function TableCellViewer({
                 <DatePicker value={form.watch('start_date')} onChange={(val) => form.setValue('start_date', val)} />
               </div>
               <div className='flex flex-col gap-3'>
-                <Label htmlFor='payoff_date'>Payoff Date</Label>
-                <DatePicker value={form.watch('payoff_date')} onChange={(val) => form.setValue('payoff_date', val)} />
+                <Label htmlFor='next_payment_date'>Next Payment Date</Label>
+                <DatePicker
+                  value={form.watch('next_payment_date')}
+                  onChange={(val) => form.setValue('next_payment_date', val)}
+                />
               </div>
             </div>
             <div className='grid grid-cols-2 gap-4'>
@@ -94,21 +97,12 @@ export function TableCellViewer({
                 />
               </div>
             </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='accrued_interest'>Accrued Interest</Label>
-                <CurrencyInput
-                  defaultValue={form.getValues('accrued_interest')}
-                  onChange={(val) => form.setValue('accrued_interest', val)}
-                />
-              </div>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='interest_rate'>Interest Rate</Label>
-                <PercentageInput
-                  defaultValue={form.getValues('interest_rate')}
-                  onChange={(val) => form.setValue('interest_rate', val)}
-                />
-              </div>
+            <div className='flex flex-col gap-3'>
+              <Label htmlFor='interest_rate'>Interest Rate</Label>
+              <PercentageInput
+                defaultValue={form.getValues('interest_rate')}
+                onChange={(val) => form.setValue('interest_rate', val)}
+              />
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
@@ -125,13 +119,6 @@ export function TableCellViewer({
                   onChange={(val) => form.setValue('extra_payment', val)}
                 />
               </div>
-            </div>
-            <div className='flex flex-col gap-3'>
-              <Label htmlFor='next_payment_date'>Next Payment Date</Label>
-              <DatePicker
-                value={form.watch('next_payment_date')}
-                onChange={(val) => form.setValue('next_payment_date', val)}
-              />
             </div>
           </form>
         </div>
