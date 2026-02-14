@@ -25,11 +25,6 @@ const data = {
   },
   navList: [
     {
-      title: 'Dashboard',
-      url: '/dashboard',
-      icon: ChartLine,
-    },
-    {
       title: 'Loans',
       url: '/loans',
       icon: DollarSign,

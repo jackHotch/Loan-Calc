@@ -180,7 +180,7 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
       rowSelection,
       columnFilters,
     },
-    getRowId: (row) => row.name,
+    getRowId: (row) => row.id,
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
@@ -254,16 +254,18 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row, key) => {
-                  const isTotal = row.getValue('name') === 'Totals'
+                  const isTotalRow = row.getValue('name') === 'Totals'
 
                   return (
                     <TableRow
                       key={key}
                       data-state={row.getIsSelected() && 'selected'}
-                      className={isTotal ? 'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0' : ''}
+                      className={isTotalRow ? 'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0' : ''}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                        <TableCell className={isTotalRow ? 'font-bold' : ''} key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
                       ))}
                     </TableRow>
                   )
