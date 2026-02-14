@@ -137,8 +137,15 @@ export class LoansService {
     };
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} loan`;
+  remove(userId: BigInt, loanId: number) {
+    return this.db.query(
+      `
+      DELETE FROM loans
+      WHERE id = $1
+      AND user_id = $2
+      `,
+      [loanId, userId],
+    );
   }
 
   async findSchedules(id: number) {
