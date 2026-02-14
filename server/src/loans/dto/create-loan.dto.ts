@@ -39,8 +39,4 @@ export class CreateLoanDto {
 
   @IsNumber()
   payment_day_of_month: number;
-
-  @Type(() => Date)
-  @IsDate()
-  payoff_date: Date;
 }
