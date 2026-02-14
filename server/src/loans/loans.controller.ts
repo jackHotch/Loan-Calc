@@ -49,7 +49,7 @@ export class LoansController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.loansService.remove(+id);
+  remove(@User() userId: BigInt, @Param('id') id: string) {
+    return this.loansService.remove(userId, +id);
   }
 }
