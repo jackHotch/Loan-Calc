@@ -1,5 +1,5 @@
 export interface PaymentScheduleInput {
-  current_principal: number;
+  starting_principal: number;
   interest_rate: number;
   start_date: Date;
   payment_day_of_month: number;

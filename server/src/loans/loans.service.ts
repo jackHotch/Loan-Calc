@@ -16,8 +16,8 @@ export class LoansService {
     const result = await this.db.query(
       `
       INSERT INTO loans (user_id, name, lender, starting_principal, current_principal,
-        interest_rate, minimum_payment, extra_payment, start_date, payment_day_of_month)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        interest_rate, minimum_payment, extra_payment, extra_payment_start_date, start_date, payment_day_of_month)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *;`,
       [
         userId,
@@ -28,6 +28,7 @@ export class LoansService {
         loan.interest_rate,
         loan.minimum_payment,
         loan.extra_payment,
+        loan.extra_payment_start_date,
         loan.start_date,
         loan.payment_day_of_month,
       ],
@@ -49,10 +50,42 @@ export class LoansService {
   async findAll(userId: BigInt) {
     return await this.db.query(
       `
-      SELECT id, user_id, name, lender, starting_principal, current_principal, interest_rate,
-        minimum_payment, extra_payment, extra_payment_start_date, payment_day_of_month, start_date, payoff_date
-      FROM loans
-      WHERE user_id = $1;
+      SELECT
+        l.id,
+        l.user_id,
+        l.name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment,
+        l.extra_payment,
+        l.current_principal,
+        l.payment_day_of_month,
+        l.payoff_date,
+        l.start_date,
+        l.extra_payment_start_date,
+        COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid
+      FROM
+        loans l
+      LEFT JOIN
+        payment_schedules ps ON l.id = ps.loan_id
+      WHERE
+        l.user_id = $1
+      GROUP BY
+        l.id,
+        l.user_id,
+        l.name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment,
+        l.extra_payment,
+        l.current_principal,
+        l.payment_day_of_month,
+        l.payoff_date,
+        l.start_date,
+        l.extra_payment_start_date
       `,
       [userId],
     );
@@ -61,11 +94,43 @@ export class LoansService {
   async findOne(userId: BigInt, loanId: number): Promise<LoanDb> {
     const results = await this.db.query(
       `
-      SELECT id, user_id, name, lender, starting_principal, current_principal, interest_rate,
-        minimum_payment, extra_payment, extra_payment_start_date, payment_day_of_month, start_date, payoff_date
-      FROM loans
-      WHERE user_id = $1
-      AND id = $2;
+      SELECT
+        l.id,
+        l.user_id,
+        l.name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment,
+        l.extra_payment,
+        l.current_principal,
+        l.payment_day_of_month,
+        l.payoff_date,
+        l.start_date,
+        l.extra_payment_start_date,
+        COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid
+      FROM
+        loans l
+      LEFT JOIN
+        payment_schedules ps ON l.id = ps.loan_id
+      WHERE
+        l.user_id = $1
+      AND ps.loan_id = $2
+      GROUP BY
+        l.id,
+        l.user_id,
+        l.name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment,
+        l.extra_payment,
+        l.current_principal,
+        l.payment_day_of_month,
+        l.payoff_date,
+        l.start_date,
+        l.extra_payment_start_date
       `,
       [userId, loanId],
     );
