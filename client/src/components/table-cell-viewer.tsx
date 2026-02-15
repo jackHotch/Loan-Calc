@@ -12,14 +12,14 @@ import {
   DrawerClose,
 } from './ui/drawer'
 import { loanFormSchema, LoanTable } from '@/constants/schema'
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { DatePicker } from './date-picker'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
 import { PercentageInput } from './percentage-input'
-import { tableToForm } from '@/lib/utils'
-import { useCreateLoan } from '@/lib/api/loans'
+import { formToDb, tableToForm } from '@/lib/utils'
+import { useCreateLoan, useUpdateLoan } from '@/lib/api/loans'
 import { toast } from 'sonner'
 
 export function TableCellViewer({
@@ -31,7 +31,9 @@ export function TableCellViewer({
   isNewLoan?: boolean
   children: ReactNode
 }) {
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const createLoan = useCreateLoan()
+  const updateLoan = useUpdateLoan()
   const description = isNewLoan
     ? 'Edit loan details and payment information'
     : 'Enter new loan details and payment information'
@@ -40,6 +42,7 @@ export function TableCellViewer({
     resolver: zodResolver(loanFormSchema),
     defaultValues: isNewLoan
       ? {
+          id: '',
           name: '',
           lender: '',
           start_date: null,
@@ -53,21 +56,35 @@ export function TableCellViewer({
       : tableToForm(data),
   })
 
-  // const handleSubmit = async () => {
-  //   try {
-  //     await createLoan.mutateAsync(form.getValues())
-  //     toast.success('Loan created successfully!')
-  //   } catch (error: any) {
-  //     toast.error('Unable to create loan')
-  //   }
-  // }
+  const handleSubmit = async () => {
+    const formatedLoan = formToDb(form.getValues())
+    if (isNewLoan) {
+      try {
+        await createLoan.mutateAsync(formatedLoan)
+        form.reset()
+        setDrawerOpen(false)
+        toast.success('Loan created successfully!')
+      } catch (error: any) {
+        toast.error('Unable to create loan')
+      }
+    } else {
+      try {
+        await updateLoan.mutateAsync({ id: form.getValues('id'), data: formatedLoan })
+        form.reset()
+        setDrawerOpen(false)
+        toast.success('Loan updated successfully!')
+      } catch (error: any) {
+        toast.error('Unable to update loan')
+      }
+    }
+  }
 
   return (
-    <Drawer direction='right'>
+    <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction='right'>
       <DrawerTrigger asChild>{children}</DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className='gap-1'>
-          <DrawerTitle>{form.getValues('name') || 'New Loan'}</DrawerTitle>
+          <DrawerTitle>{isNewLoan ? 'New Loan' : 'Edit Loan'}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
         <div className='flex flex-col gap-4 px-4 text-sm'>
@@ -155,7 +172,7 @@ export function TableCellViewer({
           </form>
         </div>
         <DrawerFooter>
-          <Button>{isNewLoan ? 'Add Loan' : 'Save Changes'}</Button>
+          <Button onClick={handleSubmit}>{isNewLoan ? 'Add Loan' : 'Save Changes'}</Button>
           <DrawerClose asChild>
             <Button variant='outline'>Cancel</Button>
           </DrawerClose>

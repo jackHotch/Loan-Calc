@@ -1,5 +1,6 @@
 export function getNewPaymentDate(startDate: Date, targetDay: number) {
   const start = new Date(startDate);
+  console.log(targetDay);
 
   if (targetDay < 1 || targetDay > 31) {
     throw new Error('targetDay must be between 1 and 31');
