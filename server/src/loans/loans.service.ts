@@ -50,7 +50,7 @@ export class LoansService {
     return await this.db.query(
       `
       SELECT id, user_id, name, lender, starting_principal, current_principal, interest_rate,
-        minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
+        minimum_payment, extra_payment, extra_payment_start_date, payment_day_of_month, start_date, payoff_date
       FROM loans
       WHERE user_id = $1;
       `,
@@ -62,7 +62,7 @@ export class LoansService {
     const results = await this.db.query(
       `
       SELECT id, user_id, name, lender, starting_principal, current_principal, interest_rate,
-        minimum_payment, extra_payment, payment_day_of_month, start_date, payoff_date
+        minimum_payment, extra_payment, extra_payment_start_date, payment_day_of_month, start_date, payoff_date
       FROM loans
       WHERE user_id = $1
       AND id = $2;

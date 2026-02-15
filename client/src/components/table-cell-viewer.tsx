@@ -19,6 +19,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
 import { PercentageInput } from './percentage-input'
 import { tableToForm } from '@/lib/utils'
+import { useCreateLoan } from '@/lib/api/loans'
+import { toast } from 'sonner'
 
 export function TableCellViewer({
   data,
@@ -29,6 +31,11 @@ export function TableCellViewer({
   isNewLoan?: boolean
   children: ReactNode
 }) {
+  const createLoan = useCreateLoan()
+  const description = isNewLoan
+    ? 'Edit loan details and payment information'
+    : 'Enter new loan details and payment information'
+
   const form = useForm({
     resolver: zodResolver(loanFormSchema),
     defaultValues: isNewLoan
@@ -36,19 +43,24 @@ export function TableCellViewer({
           name: '',
           lender: '',
           start_date: null,
-          payoff_date: null,
           starting_principal: null,
-          remaining_principal: null,
+          current_principal: null,
           interest_rate: null,
           minimum_payment: null,
           extra_payment: null,
+          extra_payment_start_date: null,
         }
       : tableToForm(data),
   })
 
-  const description = isNewLoan
-    ? 'Edit loan details and payment information'
-    : 'Enter new loan details and payment information'
+  // const handleSubmit = async () => {
+  //   try {
+  //     await createLoan.mutateAsync(form.getValues())
+  //     toast.success('Loan created successfully!')
+  //   } catch (error: any) {
+  //     toast.error('Unable to create loan')
+  //   }
+  // }
 
   return (
     <Drawer direction='right'>
@@ -58,15 +70,25 @@ export function TableCellViewer({
           <DrawerTitle>{form.getValues('name') || 'New Loan'}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <div className='flex flex-col gap-4 overflow-y-auto px-4 text-sm'>
+        <div className='flex flex-col gap-4 px-4 text-sm'>
           <form className='flex flex-col gap-4'>
             <div className='flex flex-col gap-3'>
               <Label htmlFor='name'>Loan Name</Label>
-              <Input id='name' defaultValue={form.watch('name')} placeholder='ex: Auto Loan' />
+              <Input
+                id='name'
+                defaultValue={form.watch('name')}
+                onChange={(val) => form.setValue('name', val.target.value)}
+                placeholder='ex: Auto Loan'
+              />
             </div>
             <div className='flex flex-col gap-3'>
               <Label htmlFor='lender'>Lender</Label>
-              <Input id='lender' defaultValue={form.watch('lender')} placeholder='ex: Sallie Mae' />
+              <Input
+                id='lender'
+                defaultValue={form.watch('lender')}
+                onChange={(val) => form.setValue('lender', val.target.value)}
+                placeholder='ex: Sallie Mae'
+              />
             </div>
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
@@ -90,20 +112,14 @@ export function TableCellViewer({
                 />
               </div>
               <div className='flex flex-col gap-3'>
-                <Label htmlFor='remaining_principal'>Remaining Principal</Label>
+                <Label htmlFor='current_principal'>Remaining Principal</Label>
                 <CurrencyInput
-                  defaultValue={form.getValues('remaining_principal')}
-                  onChange={(val) => form.setValue('remaining_principal', val)}
+                  defaultValue={form.getValues('current_principal')}
+                  onChange={(val) => form.setValue('current_principal', val)}
                 />
               </div>
             </div>
-            <div className='flex flex-col gap-3'>
-              <Label htmlFor='interest_rate'>Interest Rate</Label>
-              <PercentageInput
-                defaultValue={form.getValues('interest_rate')}
-                onChange={(val) => form.setValue('interest_rate', val)}
-              />
-            </div>
+
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='minimum_payment'>Minimum Payment</Label>
@@ -113,10 +129,26 @@ export function TableCellViewer({
                 />
               </div>
               <div className='flex flex-col gap-3'>
+                <Label htmlFor='interest_rate'>Interest Rate</Label>
+                <PercentageInput
+                  defaultValue={form.getValues('interest_rate')}
+                  onChange={(val) => form.setValue('interest_rate', val)}
+                />
+              </div>
+            </div>
+            <div className='grid grid-cols-2 gap-4'>
+              <div className='flex flex-col gap-3'>
                 <Label htmlFor='extra_payment'>Extra Payment</Label>
                 <CurrencyInput
                   defaultValue={form.getValues('extra_payment')}
                   onChange={(val) => form.setValue('extra_payment', val)}
+                />
+              </div>
+              <div className='flex flex-col gap-3'>
+                <Label htmlFor='extra_payment_start_date'>Extra Payment Date</Label>
+                <DatePicker
+                  value={form.watch('extra_payment_start_date')}
+                  onChange={(val) => form.setValue('extra_payment_start_date', val)}
                 />
               </div>
             </div>

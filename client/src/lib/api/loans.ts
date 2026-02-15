@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
-import { AxiosError } from 'axios'
 import { useAxios } from './useAxios'
 import { LoanDb } from '@/constants/schema'
 import { ApiError } from './axios'
@@ -23,6 +22,21 @@ export const useDeleteLoan = () => {
   return useMutation<void, ApiError, number>({
     mutationFn: async (id) => {
       await axios.delete(`/loans/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] })
+    },
+  })
+}
+
+export const useCreateLoan = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<LoanDb, ApiError>({
+    mutationFn: async (data) => {
+      const response = await axios.post<LoanDb>('/loans', data)
+      return response.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] })
