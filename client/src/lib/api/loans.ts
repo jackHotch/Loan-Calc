@@ -33,7 +33,11 @@ export const useCreateLoan = () => {
   const axios = useAxios()
   const queryClient = useQueryClient()
 
-  return useMutation<LoanDb, ApiError, Omit<LoanDb, 'id' | 'user_id'>>({
+  return useMutation<
+    LoanDb,
+    ApiError,
+    Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'total_interest_paid' | 'total_amount_paid'>
+  >({
     mutationFn: async (data: LoanDb) => {
       const response = await axios.post<LoanDb>('/loans', data)
       return response.data
@@ -48,7 +52,14 @@ export const useUpdateLoan = () => {
   const axios = useAxios()
   const queryClient = useQueryClient()
 
-  return useMutation<LoanDb, ApiError, { id: string; data: Omit<LoanDb, 'id' | 'user_id'> }>({
+  return useMutation<
+    LoanDb,
+    ApiError,
+    {
+      id: string
+      data: Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'total_interest_paid' | 'total_amount_paid'>
+    }
+  >({
     mutationFn: async ({ id, data }) => {
       const response = await axios.patch<LoanDb>(`/loans/${id}`, data)
       return response.data

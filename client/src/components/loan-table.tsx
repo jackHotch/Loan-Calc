@@ -170,6 +170,16 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
       cell: ({ row }) => <div>{row.original.payoff_date}</div>,
     },
     {
+      accessorKey: 'total_interest_paid',
+      header: () => <div>Total Interest Paid</div>,
+      cell: ({ row }) => <div>{row.original.total_interest_paid}</div>,
+    },
+    {
+      accessorKey: 'total_amount_paid',
+      header: () => <div>Total Amount Paid</div>,
+      cell: ({ row }) => <div>{row.original.total_amount_paid}</div>,
+    },
+    {
       id: 'actions',
       cell: ({ row }) => {
         const isTotal = row.getValue('name') === 'Totals'
