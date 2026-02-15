@@ -23,7 +23,7 @@ export class PaymentScheduleService {
     const startingPrincipal =
       options.startingPrincipal !== undefined
         ? new Decimal(options.startingPrincipal)
-        : new Decimal(loan.current_principal);
+        : new Decimal(loan.starting_principal);
     const startDate = options.startDate
       ? new Date(options.startDate)
       : new Date(loan.start_date);
@@ -86,7 +86,7 @@ export class PaymentScheduleService {
 
   generateScheduleForNewLoan(loan: LoanDb) {
     const paymentScheduleInput: PaymentScheduleInput = {
-      current_principal: loan.current_principal,
+      starting_principal: loan.starting_principal,
       interest_rate: loan.interest_rate,
       start_date: loan.start_date,
       payment_day_of_month: loan.payment_day_of_month,
@@ -115,7 +115,7 @@ export class PaymentScheduleService {
     );
 
     const paymentScheduleInput: PaymentScheduleInput = {
-      current_principal: loan.current_principal,
+      starting_principal: loan.starting_principal,
       interest_rate: loan.interest_rate,
       start_date: loan.start_date,
       payment_day_of_month: loan.payment_day_of_month,
