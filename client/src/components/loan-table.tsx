@@ -130,9 +130,9 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
       cell: ({ row }) => <div>{row.original.starting_principal}</div>,
     },
     {
-      accessorKey: 'remaining_principal',
-      header: () => <div>Remaining Principal</div>,
-      cell: ({ row }) => <div>{row.original.remaining_principal}</div>,
+      accessorKey: 'current_principal',
+      header: () => <div>Current Principal</div>,
+      cell: ({ row }) => <div>{row.original.current_principal}</div>,
     },
     {
       accessorKey: 'interest_rate',
@@ -148,6 +148,11 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
       accessorKey: 'extra_payment',
       header: () => <div>Extra Payment</div>,
       cell: ({ row }) => <div>{row.original.extra_payment}</div>,
+    },
+    {
+      accessorKey: 'extra_payment_start_date',
+      header: () => <div>Extra Payment Start Date</div>,
+      cell: ({ row }) => <div>{row.original.extra_payment_start_date}</div>,
     },
     {
       accessorKey: 'start_date',
@@ -216,8 +221,8 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
       rowSelection,
       columnFilters,
     },
-    getRowId: (row) => row.id,
-    enableRowSelection: true,
+    getRowId: (row) => String(row.id),
+    enableRowSelection: (row) => row.original.name !== 'Totals',
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
