@@ -140,6 +140,15 @@ export class PaymentScheduleService {
       startDate = new Date(loan.start_date);
     }
 
+    const dates: Date[] = [startDate];
+
+    if (loan.extra_payment_start_date) {
+      dates.push(new Date(loan.extra_payment_start_date));
+    }
+
+    startDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+    console.log('ssssssss', startDate);
+
     await this.db.query(
       `
       DELETE FROM payment_schedules

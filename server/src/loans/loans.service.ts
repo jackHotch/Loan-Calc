@@ -186,6 +186,8 @@ export class LoansService {
     let updatedLoan = result[0] as LoanDb;
     let schedule;
 
+    console.log('hiisdfi', updatedLoan);
+
     if (needsRecalculation) {
       schedule =
         await this.paymentSchedules.generateScheduleForExistingLoan(
