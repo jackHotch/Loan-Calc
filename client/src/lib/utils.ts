@@ -74,9 +74,8 @@ function getNextPaymentDate(dayOfMonth: number): string {
   })
 }
 
-export function formToDb(form: LoanForm, userId: bigint): Omit<LoanDb, 'id'> {
+export function formToDb(form: LoanForm): Omit<LoanDb, 'id' | 'user_id'> {
   return {
-    user_id: userId,
     name: form.name,
     lender: form.lender || null,
     starting_principal: form.starting_principal,
