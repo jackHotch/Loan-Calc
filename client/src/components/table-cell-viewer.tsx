@@ -47,7 +47,6 @@ export function TableCellViewer({
           lender: '',
           start_date: null,
           starting_principal: null,
-          current_principal: null,
           interest_rate: null,
           minimum_payment: null,
           extra_payment: null,
@@ -107,11 +106,30 @@ export function TableCellViewer({
                 placeholder='ex: Sallie Mae'
               />
             </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='start_date'>Start Date</Label>
-                <DatePicker value={form.watch('start_date')} onChange={(val) => form.setValue('start_date', val)} />
-              </div>
+            {isNewLoan ? (
+              <>
+                <div className='grid grid-cols-2 gap-4'>
+                  <div className='flex flex-col gap-3'>
+                    <Label htmlFor='start_date'>Start Date</Label>
+                    <DatePicker value={form.watch('start_date')} onChange={(val) => form.setValue('start_date', val)} />
+                  </div>
+                  <div className='flex flex-col gap-3'>
+                    <Label htmlFor='next_payment_date'>Next Payment Date</Label>
+                    <DatePicker
+                      value={form.watch('next_payment_date')}
+                      onChange={(val) => form.setValue('next_payment_date', val)}
+                    />
+                  </div>
+                </div>
+                <div className='flex flex-col gap-3'>
+                  <Label htmlFor='starting_principal'>Starting Principal</Label>
+                  <CurrencyInput
+                    defaultValue={form.getValues('starting_principal')}
+                    onChange={(val) => form.setValue('starting_principal', val)}
+                  />
+                </div>
+              </>
+            ) : (
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='next_payment_date'>Next Payment Date</Label>
                 <DatePicker
@@ -119,23 +137,7 @@ export function TableCellViewer({
                   onChange={(val) => form.setValue('next_payment_date', val)}
                 />
               </div>
-            </div>
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='starting_principal'>Starting Principal</Label>
-                <CurrencyInput
-                  defaultValue={form.getValues('starting_principal')}
-                  onChange={(val) => form.setValue('starting_principal', val)}
-                />
-              </div>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='current_principal'>Remaining Principal</Label>
-                <CurrencyInput
-                  defaultValue={form.getValues('current_principal')}
-                  onChange={(val) => form.setValue('current_principal', val)}
-                />
-              </div>
-            </div>
+            )}
 
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>

@@ -33,6 +33,8 @@ export function dbToTable(loan: LoanDb): LoanTable {
     start_date: formatDate(loan.start_date),
     next_payment_date: getNextPaymentDate(loan.payment_day_of_month),
     payoff_date: formatDate(loan.payoff_date),
+    total_interest_paid: formatCurrency(loan.total_interest_paid),
+    total_amount_paid: formatCurrency(loan.total_amount_paid),
   }
 }
 
@@ -74,12 +76,13 @@ function getNextPaymentDate(dayOfMonth: number): string {
   })
 }
 
-export function formToDb(form: LoanForm): Omit<LoanDb, 'id' | 'user_id'> {
+export function formToDb(
+  form: LoanForm,
+): Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'total_interest_paid' | 'total_amount_paid'> {
   return {
     name: form.name,
     lender: form.lender || null,
     starting_principal: form.starting_principal,
-    current_principal: form.current_principal,
     interest_rate: form.interest_rate,
     minimum_payment: form.minimum_payment,
     extra_payment: form.extra_payment || null,
@@ -101,7 +104,6 @@ export function tableToForm(loan: LoanTable): LoanForm {
     payoff_date: parseDate(loan.payoff_date),
     next_payment_date: parseDate(loan.next_payment_date),
     starting_principal: parseCurrency(loan.starting_principal),
-    current_principal: parseCurrency(loan.current_principal),
     interest_rate: parsePercentage(loan.interest_rate),
     minimum_payment: parseCurrency(loan.minimum_payment),
     extra_payment: parseCurrency(loan.extra_payment),
@@ -142,6 +144,8 @@ export function calculateTotals(loans: LoanDb[]): LoanDb {
     start_date: null,
     payment_day_of_month: 0,
     payoff_date: null,
+    total_interest_paid: 0,
+    total_amount_paid: 0,
   }
 
   for (const loan of loans) {
@@ -149,6 +153,8 @@ export function calculateTotals(loans: LoanDb[]): LoanDb {
     totals.current_principal += Number(loan.current_principal)
     totals.minimum_payment += Number(loan.minimum_payment)
     totals.extra_payment += Number(loan.extra_payment)
+    totals.total_interest_paid += Number(loan.total_interest_paid)
+    totals.total_amount_paid += Number(loan.total_amount_paid)
   }
 
   return totals

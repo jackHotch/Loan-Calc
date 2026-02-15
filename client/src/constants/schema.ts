@@ -14,6 +14,8 @@ export const loanDbSchema = z.object({
   start_date: z.date(),
   payment_day_of_month: z.number(),
   payoff_date: z.date(),
+  total_interest_paid: z.number().nonnegative(),
+  total_amount_paid: z.number().nonnegative(),
 })
 
 export const loanTableSchema = z.object({
@@ -29,6 +31,8 @@ export const loanTableSchema = z.object({
   start_date: z.string(),
   next_payment_date: z.string(),
   payoff_date: z.string(),
+  total_interest_paid: z.string(),
+  total_amount_paid: z.string(),
 })
 
 export const loanFormSchema = z.object({
@@ -39,7 +43,6 @@ export const loanFormSchema = z.object({
   payoff_date: z.date(),
   next_payment_date: z.date(),
   starting_principal: z.number().positive(),
-  current_principal: z.number().nonnegative(),
   interest_rate: z.number().min(0).max(100),
   minimum_payment: z.number().positive(),
   extra_payment: z.number().nonnegative().optional(),
