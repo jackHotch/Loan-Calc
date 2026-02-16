@@ -9,11 +9,12 @@ import { useEffect, useState } from 'react'
 export default function Loans() {
   const { data, isLoading } = useLoans()
   const [tableData, setTableData] = useState<any>()
+  const [totals, setTotals] = useState<any>()
 
   useEffect(() => {
     if (data && data.length > 0) {
-      const loansWithTotals = [...data, calculateTotals(data)]
-      setTableData(loansWithTotals.map(dbToTable))
+      setTotals(calculateTotals(data))
+      setTableData(data.map(dbToTable))
     }
   }, [data])
 
@@ -21,10 +22,5 @@ export default function Loans() {
     return <div>Loading...</div>
   }
 
-  return (
-    <>
-      <LoanTable data={tableData} />
-      totals
-    </>
-  )
+  return <LoanTable data={tableData} totals={totals} />
 }

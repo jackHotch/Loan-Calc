@@ -21,6 +21,7 @@ import { PercentageInput } from './percentage-input'
 import { formToDb, tableToForm } from '@/lib/utils'
 import { useCreateLoan, useUpdateLoan } from '@/lib/api/loans'
 import { toast } from 'sonner'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export function TableCellViewer({
   data,
@@ -31,6 +32,7 @@ export function TableCellViewer({
   isNewLoan?: boolean
   children: ReactNode
 }) {
+  const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const createLoan = useCreateLoan()
   const updateLoan = useUpdateLoan()
@@ -79,7 +81,7 @@ export function TableCellViewer({
   }
 
   return (
-    <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction='right'>
+    <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction={isMobile ? 'bottom' : 'right'}>
       <DrawerTrigger asChild>{children}</DrawerTrigger>
       <DrawerContent>
         <DrawerHeader className='gap-1'>

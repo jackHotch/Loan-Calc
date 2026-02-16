@@ -147,7 +147,6 @@ export class PaymentScheduleService {
     }
 
     startDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-    console.log('ssssssss', startDate);
 
     await this.db.query(
       `

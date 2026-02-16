@@ -32,8 +32,10 @@ import { TableCellViewer } from './table-cell-viewer'
 import { useDeleteLoan } from '@/lib/api/loans'
 import { DeleteLoans } from './delete-loans'
 import { toast } from 'sonner'
+import { SortableHeader } from './sortable-header'
+import { sortDateString } from '@/lib/utils'
 
-export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
+export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema[]; totals: LoanTableSchema }) {
   const [data, setData] = useState(() => initialData || [])
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -126,68 +128,73 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
     },
     {
       accessorKey: 'starting_principal',
-      header: () => <div>Starting Principal</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Starting Principal' />,
       cell: ({ row }) => <div>{row.original.starting_principal}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       accessorKey: 'current_principal',
-      header: () => <div>Current Principal</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Current Principal' />,
       cell: ({ row }) => <div>{row.original.current_principal}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       accessorKey: 'interest_rate',
-      header: () => <div>Interest Rate</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Interest Rate' />,
       cell: ({ row }) => <div>{row.original.interest_rate}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       accessorKey: 'minimun_payment',
-      header: () => <div>Minimum Payment</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Minimum Payment' />,
       cell: ({ row }) => <div>{row.original.minimum_payment}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       accessorKey: 'extra_payment',
-      header: () => <div>Extra Payment</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Extra Payment' />,
       cell: ({ row }) => <div>{row.original.extra_payment}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       accessorKey: 'extra_payment_start_date',
-      header: () => <div>Extra Payment Start Date</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Extra Payment Start Date' />,
       cell: ({ row }) => <div>{row.original.extra_payment_start_date}</div>,
+      sortingFn: sortDateString,
     },
     {
       accessorKey: 'start_date',
-      header: 'Start Date',
+      header: ({ column }) => <SortableHeader column={column} title='Start Date' />,
       cell: ({ row }) => <div>{row.original.start_date}</div>,
+      sortingFn: sortDateString,
     },
     {
       accessorKey: 'next_payment_date',
-      header: 'Next Payment Date',
+      header: ({ column }) => <SortableHeader column={column} title='Next Payment Date' />,
       cell: ({ row }) => <div>{row.original.next_payment_date}</div>,
+      sortingFn: sortDateString,
     },
     {
       accessorKey: 'payoff_date',
-      header: 'Payoff Date',
+      header: ({ column }) => <SortableHeader column={column} title='Payoff Date' />,
       cell: ({ row }) => <div>{row.original.payoff_date}</div>,
+      sortingFn: sortDateString,
     },
     {
       accessorKey: 'total_interest_paid',
-      header: () => <div>Total Interest Paid</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Total Interest Paid' />,
       cell: ({ row }) => <div>{row.original.total_interest_paid}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       accessorKey: 'total_amount_paid',
-      header: () => <div>Total Amount Paid</div>,
+      header: ({ column }) => <SortableHeader column={column} title='Total Amount Paid' />,
       cell: ({ row }) => <div>{row.original.total_amount_paid}</div>,
+      sortingFn: 'alphanumeric',
     },
     {
       id: 'actions',
       cell: ({ row }) => {
-        const isTotal = row.getValue('name') === 'Totals'
-
-        if (isTotal) {
-          return <div className='flex items-center justify-center'></div>
-        }
-
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -304,23 +311,31 @@ export function LoanTable({ data: initialData }: { data: LoanTableSchema[] }) {
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row, key) => {
-                  const isTotalRow = row.getValue('name') === 'Totals'
-
-                  return (
-                    <TableRow
-                      key={key}
-                      data-state={row.getIsSelected() && 'selected'}
-                      className={isTotalRow ? 'bg-muted/50 border-t font-medium [&>tr]:last:border-b-0' : ''}
-                    >
+                <>
+                  {table.getRowModel().rows.map((row, key) => (
+                    <TableRow key={key} data-state={row.getIsSelected() && 'selected'}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell className={isTotalRow ? 'font-bold' : ''} key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                       ))}
                     </TableRow>
-                  )
-                })
+                  ))}
+
+                  <TableRow className='bg-muted/50 border-t font-bold'>
+                    {table.getVisibleFlatColumns().map((column) => {
+                      const totalsMap: Record<string, string> = {
+                        name: 'Totals',
+                        starting_principal: totals.starting_principal,
+                        current_principal: totals.current_principal,
+                        minimun_payment: totals.minimum_payment,
+                        extra_payment: totals.extra_payment,
+                        total_interest_paid: totals.total_interest_paid,
+                        total_amount_paid: totals.total_amount_paid,
+                      }
+
+                      return <TableCell key={column.id}>{totalsMap[column.id] || ''}</TableCell>
+                    })}
+                  </TableRow>
+                </>
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className='h-24 text-center'>
