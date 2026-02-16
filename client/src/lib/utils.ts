@@ -129,7 +129,7 @@ function parseDate(value: string): Date {
   }
 }
 
-export function calculateTotals(loans: LoanDb[]): LoanDb {
+export function calculateTotals(loans: LoanDb[]): LoanTable {
   let totals: LoanDb = {
     id: BigInt(-1),
     user_id: loans[0].user_id,
@@ -157,5 +157,23 @@ export function calculateTotals(loans: LoanDb[]): LoanDb {
     totals.total_amount_paid += Number(loan.total_amount_paid)
   }
 
-  return totals
+  return dbToTable(totals)
+}
+
+export const sortDateString = (rowA: any, rowB: any, columnId: string) => {
+  const dateA = rowA.getValue(columnId) as string
+  const dateB = rowB.getValue(columnId) as string
+
+  if (!dateA) return 1
+  if (!dateB) return -1
+
+  const parseDate = (dateStr: string) => {
+    const [month, day, year] = dateStr.split('/')
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).getTime()
+  }
+
+  const timeA = parseDate(dateA)
+  const timeB = parseDate(dateB)
+
+  return timeA - timeB
 }
