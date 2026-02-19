@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { SignOutButton } from '@clerk/nextjs'
 
 export function NavUser({
   user,
@@ -64,8 +65,12 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className='cursor-pointer'>
-              <LogOut />
-              Log out
+              <SignOutButton>
+                <span className='flex items-center gap-2'>
+                  <LogOut />
+                  Log out
+                </span>
+              </SignOutButton>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

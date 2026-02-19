@@ -1,7 +1,6 @@
 'use client'
 
-import { LoanTable } from '@/components/loan-table'
-import { LoanDb } from '@/constants/schema'
+import { LoanTable } from '@/components/loan-table/loan-table'
 import { useLoans } from '@/lib/api/loans'
 import { calculateTotals, dbToTable } from '@/lib/utils'
 import { useEffect, useState } from 'react'

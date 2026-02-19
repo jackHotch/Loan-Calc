@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Input } from './ui/input'
+import { Input } from '../ui/input'
 
 export function PercentageInput({
   defaultValue,

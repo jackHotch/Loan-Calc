@@ -1,6 +1,6 @@
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 import {
   Drawer,
   DrawerTrigger,
@@ -10,7 +10,7 @@ import {
   DrawerDescription,
   DrawerFooter,
   DrawerClose,
-} from './ui/drawer'
+} from '../ui/drawer'
 import { loanFormSchema, LoanTable } from '@/constants/schema'
 import { ReactNode, useState } from 'react'
 import { DatePicker } from './date-picker'

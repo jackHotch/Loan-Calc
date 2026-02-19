@@ -3,7 +3,7 @@
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { Calculator } from 'lucide-react'
 import { ModeToggle } from './mode-toggle'
-import { Button } from './ui/button'
+import { Button } from '../ui/button'
 import { usePathname } from 'next/navigation'
 
 export const Header = () => {

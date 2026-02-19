@@ -3,8 +3,8 @@
 import * as React from 'react'
 import { DollarSign, Calculator, ChartLine, Layers, ArrowLeftRight } from 'lucide-react'
 
-import { NavList } from '@/components/nav-list'
-import { NavUser } from '@/components/nav-user'
+import { NavList } from '@/components/sidebar/nav-list'
+import { NavUser } from '@/components/sidebar/nav-user'
 import {
   Sidebar,
   SidebarContent,

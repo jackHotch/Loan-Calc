@@ -1,5 +1,5 @@
 import { formatCurrency } from '@/lib/utils'
-import { Input } from './ui/input'
+import { Input } from '../ui/input'
 import { useState } from 'react'
 
 export function CurrencyInput({ defaultValue, onChange }: { defaultValue: number; onChange: (value: number) => void }) {
