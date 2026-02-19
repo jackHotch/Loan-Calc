@@ -8,10 +8,25 @@ import {
 import { LoanDb } from 'src/lib/types/loan.types';
 import { DatabaseService } from 'src/database/database.service';
 import { getNewPaymentDate } from 'src/lib/utils';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class PaymentScheduleService {
   constructor(private db: DatabaseService) {}
+
+  // @Cron(CronExpression.EVERY_5_SECONDS)
+  // async processAllPendingPayments() {
+  //   const today = new Date();
+
+  //   const result = await this.db.query(`
+  //     SELECT * FROM payment_schedules
+  //     WHERE payment_date = $1
+  //     `);
+
+  //   if (result.length > 0) {
+  //     console.log('hidsfafasfsd');
+  //   }
+  // }
 
   calculatePaymentSchedule(
     loan: PaymentScheduleInput,
