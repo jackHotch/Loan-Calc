@@ -13,7 +13,7 @@ import { getNewPaymentDate } from 'src/lib/utils';
 export class PaymentScheduleService {
   constructor(private db: DatabaseService) {}
 
-  async processAllPendingPayments(loanId?: number) {
+  async processAllPendingPayments(loanId?: BigInt) {
     const today = new Date();
     let loanIdCondition = ``;
     let values: any[] = [today];
@@ -121,7 +121,11 @@ export class PaymentScheduleService {
     const schedule: PaymentScheduleEntry[] =
       this.calculatePaymentSchedule(paymentScheduleInput);
 
-    return this.saveSchedule(loan.id, schedule);
+    this.saveSchedule(loan.id, schedule);
+
+    this.processAllPendingPayments(loan.id);
+
+    return this.getSchedules(loan.id, 'loan');
   }
 
   async generateScheduleForExistingLoan(loan: LoanDb) {
@@ -190,7 +194,11 @@ export class PaymentScheduleService {
       },
     );
 
-    return this.saveSchedule(loan.id, schedules);
+    this.saveSchedule(loan.id, schedules);
+
+    this.processAllPendingPayments(loan.id);
+
+    return this.getSchedules(loan.id, 'loan');
   }
 
   async saveSchedule(loanId: BigInt, schedule: PaymentScheduleEntry[]) {
