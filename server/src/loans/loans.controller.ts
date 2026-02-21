@@ -31,12 +31,7 @@ export class LoansController {
 
   @Get(':id')
   findOne(@User() userId: BigInt, @Param('id') id: string) {
-    return this.loansService.findOne(userId, +id);
-  }
-
-  @Get('/:id/schedules')
-  findSchedules(@Param('id') id: string) {
-    return this.loansService.findSchedules(+id);
+    return this.loansService.findOne(userId, BigInt(id));
   }
 
   @Patch(':id')
@@ -45,11 +40,11 @@ export class LoansController {
     @Param('id') id: string,
     @Body() loanData: UpdateLoanDto,
   ) {
-    return this.loansService.update(userId, +id, loanData);
+    return this.loansService.update(userId, BigInt(id), loanData);
   }
 
   @Delete(':id')
   remove(@User() userId: BigInt, @Param('id') id: string) {
-    return this.loansService.remove(userId, +id);
+    return this.loansService.remove(userId, BigInt(id));
   }
 }

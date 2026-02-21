@@ -39,7 +39,7 @@ export class LoansService {
     const createdSchedule =
       await this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
 
-    const finalLoan = await this.findOne(userId, Number(createdLoan.id));
+    const finalLoan = await this.findOne(userId, createdLoan.id);
 
     return {
       loan: finalLoan,
@@ -91,7 +91,7 @@ export class LoansService {
     );
   }
 
-  async findOne(userId: BigInt, loanId: number): Promise<LoanDb> {
+  async findOne(userId: BigInt, loanId: BigInt): Promise<LoanDb> {
     const results = await this.db.query(
       `
       SELECT
@@ -143,7 +143,7 @@ export class LoansService {
     return loan ?? null;
   }
 
-  async update(userId: BigInt, loanId: number, loan: UpdateLoanDto) {
+  async update(userId: BigInt, loanId: BigInt, loan: UpdateLoanDto) {
     const needsRecalculation =
       loan.current_principal !== undefined ||
       loan.interest_rate !== undefined ||
@@ -191,7 +191,7 @@ export class LoansService {
         await this.paymentSchedules.generateScheduleForExistingLoan(
           updatedLoan,
         );
-      updatedLoan = await this.findOne(userId, Number(updatedLoan.id));
+      updatedLoan = await this.findOne(userId, updatedLoan.id);
     } else {
       schedule = this.paymentSchedules.getSchedules(updatedLoan.id, 'loan');
     }
@@ -202,7 +202,7 @@ export class LoansService {
     };
   }
 
-  remove(userId: BigInt, loanId: number) {
+  remove(userId: BigInt, loanId: BigInt) {
     return this.db.query(
       `
       DELETE FROM loans
@@ -211,10 +211,5 @@ export class LoansService {
       `,
       [loanId, userId],
     );
-  }
-
-  async findSchedules(id: number) {
-    const loan = await this.findOne(BigInt(14), id);
-    return await this.paymentSchedules.generateScheduleForExistingLoan(loan);
   }
 }

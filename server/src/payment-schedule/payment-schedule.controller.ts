@@ -14,6 +14,6 @@ export class PaymentScheduleController {
 
   @Patch('/:id')
   proccessPendingPaymentsForOneLoans(@Param('id') id: string) {
-    return this.paymentScheduleService.processAllPendingPayments(+id);
+    return this.paymentScheduleService.processAllPendingPayments(BigInt(id));
   }
 }
