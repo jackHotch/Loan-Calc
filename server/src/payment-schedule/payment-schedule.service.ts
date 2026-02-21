@@ -8,25 +8,33 @@ import {
 import { LoanDb } from 'src/lib/types/loan.types';
 import { DatabaseService } from 'src/database/database.service';
 import { getNewPaymentDate } from 'src/lib/utils';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class PaymentScheduleService {
   constructor(private db: DatabaseService) {}
 
-  // @Cron(CronExpression.EVERY_5_SECONDS)
-  // async processAllPendingPayments() {
-  //   const today = new Date();
+  async processAllPendingPayments(loanId?: number) {
+    const today = new Date();
+    let loanIdCondition = ``;
+    let values: any[] = [today];
 
-  //   const result = await this.db.query(`
-  //     SELECT * FROM payment_schedules
-  //     WHERE payment_date = $1
-  //     `);
+    if (loanId) {
+      loanIdCondition = `AND loan_id = $2`;
+      values.push(loanId);
+    }
 
-  //   if (result.length > 0) {
-  //     console.log('hidsfafasfsd');
-  //   }
-  // }
+    return await this.db.query(
+      `
+      UPDATE payment_schedules
+      SET is_actual = TRUE
+      WHERE is_actual = FALSE
+      AND payment_date <= $1
+      ${loanIdCondition}
+      RETURNING *
+      `,
+      values,
+    );
+  }
 
   calculatePaymentSchedule(
     loan: PaymentScheduleInput,
