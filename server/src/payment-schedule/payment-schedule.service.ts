@@ -13,29 +13,6 @@ import { getNewPaymentDate } from 'src/lib/utils';
 export class PaymentScheduleService {
   constructor(private db: DatabaseService) {}
 
-  async processAllPendingPayments(loanId?: BigInt) {
-    const today = new Date();
-    let loanIdCondition = ``;
-    let values: any[] = [today];
-
-    if (loanId) {
-      loanIdCondition = `AND loan_id = $2`;
-      values.push(loanId);
-    }
-
-    return await this.db.query(
-      `
-      UPDATE payment_schedules
-      SET is_actual = TRUE
-      WHERE is_actual = FALSE
-      AND payment_date <= $1
-      ${loanIdCondition}
-      RETURNING *
-      `,
-      values,
-    );
-  }
-
   calculatePaymentSchedule(
     loan: PaymentScheduleInput,
     options: CalculateScheduleOptions = {},
@@ -270,6 +247,31 @@ export class PaymentScheduleService {
       ORDER BY payment_number
       `,
       [id],
+    );
+  }
+
+  async processAllPendingPayments(loanId?: BigInt) {
+    const today = new Date();
+    let loanIdCondition = ``;
+    let values: any[] = [today];
+
+    if (loanId) {
+      loanIdCondition = `AND loan_id = $2`;
+      values.push(loanId);
+    }
+
+    console.log('hit cron !!!!!!!');
+
+    return await this.db.query(
+      `
+      UPDATE payment_schedules
+      SET is_actual = TRUE
+      WHERE is_actual = FALSE
+      AND payment_date <= $1
+      ${loanIdCondition}
+      RETURNING *
+      `,
+      values,
     );
   }
 }
