@@ -24,7 +24,7 @@ export class LoansService {
         loan.name,
         loan.lender,
         loan.starting_principal,
-        loan.current_principal,
+        loan.starting_principal,
         loan.interest_rate,
         loan.minimum_payment,
         loan.extra_payment,
@@ -145,7 +145,6 @@ export class LoansService {
 
   async update(userId: BigInt, loanId: BigInt, loan: UpdateLoanDto) {
     const needsRecalculation =
-      loan.current_principal !== undefined ||
       loan.interest_rate !== undefined ||
       loan.minimum_payment !== undefined ||
       loan.extra_payment !== undefined ||
@@ -157,7 +156,6 @@ export class LoansService {
         name = COALESCE($1, name),
         lender = COALESCE($2, lender),
         starting_principal = COALESCE($3, starting_principal),
-        current_principal = COALESCE($4, current_principal),
         interest_rate = COALESCE($5, interest_rate),
         minimum_payment = COALESCE($6, minimum_payment),
         extra_payment = COALESCE($7, extra_payment),
@@ -171,7 +169,6 @@ export class LoansService {
         loan.name,
         loan.lender,
         loan.starting_principal,
-        loan.current_principal,
         loan.interest_rate,
         loan.minimum_payment,
         loan.extra_payment,

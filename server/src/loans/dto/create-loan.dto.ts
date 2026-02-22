@@ -14,10 +14,6 @@ export class CreateLoanDto {
   starting_principal: number;
 
   @IsNumber()
-  @Min(0)
-  current_principal: number;
-
-  @IsNumber()
   interest_rate: number;
 
   @IsNumber()
