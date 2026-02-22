@@ -84,7 +84,7 @@ export class PaymentScheduleService {
     return schedule;
   }
 
-  generateScheduleForNewLoan(loan: LoanDb) {
+  async generateScheduleForNewLoan(loan: LoanDb) {
     const paymentScheduleInput: PaymentScheduleInput = {
       starting_principal: loan.starting_principal,
       interest_rate: loan.interest_rate,
@@ -98,11 +98,11 @@ export class PaymentScheduleService {
     const schedule: PaymentScheduleEntry[] =
       this.calculatePaymentSchedule(paymentScheduleInput);
 
-    this.saveSchedule(loan.id, schedule);
+    await this.saveSchedule(loan.id, schedule);
 
-    this.processAllPendingPayments(loan.id);
+    await this.processAllPendingPayments(loan.id);
 
-    return this.getSchedules(loan.id, 'loan');
+    return await this.getSchedules(loan.id, 'loan');
   }
 
   async generateScheduleForExistingLoan(loan: LoanDb) {
@@ -171,9 +171,9 @@ export class PaymentScheduleService {
       },
     );
 
-    this.saveSchedule(loan.id, schedules);
+    await this.saveSchedule(loan.id, schedules);
 
-    this.processAllPendingPayments(loan.id);
+    await this.processAllPendingPayments(loan.id);
 
     return this.getSchedules(loan.id, 'loan');
   }
@@ -254,6 +254,7 @@ export class PaymentScheduleService {
     const today = new Date();
     let loanIdCondition = ``;
     let values: any[] = [today];
+    console.log('cron time !!!!!!! - ', today);
 
     if (loanId) {
       loanIdCondition = `AND loan_id = $2`;
@@ -262,7 +263,7 @@ export class PaymentScheduleService {
 
     console.log('hit cron !!!!!!!');
 
-    return await this.db.query(
+    const payments = await this.db.query(
       `
       UPDATE payment_schedules
       SET is_actual = TRUE
@@ -273,5 +274,25 @@ export class PaymentScheduleService {
       `,
       values,
     );
+
+    const uniqueLoanIds = [...new Set(payments.map((p) => Number(p.loan_id)))];
+
+    for (const updatedLoanId of uniqueLoanIds) {
+      await this.db.query(
+        `
+      UPDATE loans
+      SET current_principal = (
+        SELECT remaining_principal
+        FROM payment_schedules
+        WHERE loan_id = $1
+        AND is_actual = TRUE
+        ORDER BY payment_date DESC
+        LIMIT 1
+      )
+      WHERE id = $1
+      `,
+        [updatedLoanId],
+      );
+    }
   }
 }
