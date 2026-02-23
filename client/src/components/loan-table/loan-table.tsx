@@ -254,7 +254,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
   return (
     <div className='flex flex-col'>
       <div className='flex items-center justify-between px-4 pb-4 pt-4 lg:px-6'>
-        <h2 className='text-2xl font-bold'>
+        <h2 className='text-2xl font-bold font-display'>
           <span className='text-primary'>My</span> Loans
         </h2>
         <div className='flex items-center gap-2'>
@@ -294,7 +294,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
         </div>
       </div>
       <div className='relative flex flex-col gap-4 px-4 lg:px-6'>
-        <div className='overflow-x-hidden rounded-2xl border'>
+        <div className='overflow-x-hidden border'>
           <Table>
             <TableHeader className='bg-muted sticky top-0 z-10'>
               {table.getHeaderGroups().map((headerGroup) => (

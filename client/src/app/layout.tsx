@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
-import { Manrope, Figtree } from 'next/font/google'
+import { Figtree } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/header/header'
 import { cn } from '@/lib/utils'
@@ -14,11 +14,6 @@ import { CircleCheck, CircleX } from 'lucide-react'
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
-const manrope = Manrope({
-  subsets: ['latin'],
-  variable: '--font-manrope',
-})
-
 export const metadata: Metadata = {
   title: 'Student Loan Calc',
 }
@@ -30,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang='en' className={cn(manrope.className, figtree.variable)} suppressHydrationWarning>
+      <html lang='en' className={cn(figtree.variable)} suppressHydrationWarning>
         <body>
           <ThemeProvider attribute='class' defaultTheme='system' enableSystem disableTransitionOnChange>
             <Providers>

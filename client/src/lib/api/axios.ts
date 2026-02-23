@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios'
+import axios, { AxiosInstance, AxiosError } from 'axios'
 
 export interface ApiError {
   message: string
