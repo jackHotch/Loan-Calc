@@ -1,3 +1,4 @@
+/* @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@300;700&family=DM+Mono:wght@400;500&display=swap'); */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -5,17 +6,16 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --primary-400: oklch(61.774% 0.21976 287.672);
-  --primary: oklch(0.55 0.24 270);
+  --primary: oklch(92.812% 0.23031 123.995);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.1 0 0);
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-foreground: oklch(0.91 0.015 285);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
@@ -29,7 +29,7 @@
   --chart-3: oklch(0.546 0.245 262.881);
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
+  --radius: 0rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -41,7 +41,8 @@
 }
 
 @theme {
-  --font-family-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fraunces', serif;
+  --font-mono: 'DM Mono', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary-400: var(--primary-400);
@@ -49,17 +50,16 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(18.22% 0.00002 271.152);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary-400: oklch(61.774% 0.21976 287.672);
-  --primary: oklch(0.60 0.26 270);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: oklch(92.812% 0.23031 123.995);
+  --primary-foreground: oklch(0.1 0 0);
   --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --secondary-foreground: oklch(0.91 0.015 285);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
   --accent: oklch(0.371 0 0);
@@ -109,7 +109,6 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-primary-400: var(--primary-400);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -131,6 +130,6 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-mono;
   }
 }
