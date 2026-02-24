@@ -125,6 +125,20 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+@utility text-description {
+  color: var(--color-zinc-500);
+  font-size: var(--text-xs);
+  line-height: var(--tw-leading, var(--text-xs--line-height));
+}
+
+@utility text-label {
+  color: var(--color-zinc-500);
+  font-size: var(--text-xs);
+  line-height: var(--tw-leading, var(--text-xs--line-height));
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
