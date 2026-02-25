@@ -132,16 +132,12 @@
 }
 
 @utility text-label {
-  color: var(--color-zinc-500);
-  font-size: var(--text-xs);
-  line-height: var(--tw-leading, var(--text-xs--line-height));
-  letter-spacing: var(--tracking-widest);
-  text-transform: uppercase;
+  @apply text-xs leading-none tracking-widest uppercase text-zinc-500;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-none;
   }
   body {
     @apply bg-background text-foreground font-mono;

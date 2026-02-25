@@ -348,7 +348,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
         </div>
         <div className='flex items-center justify-between px-4'>
           <div className='text-muted-foreground hidden flex-1 text-sm lg:flex'>
-            {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length - 1} row(s)
+            {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length} row(s)
             selected.
           </div>
           {table.getFilteredSelectedRowModel().rows.length > 0 && (
