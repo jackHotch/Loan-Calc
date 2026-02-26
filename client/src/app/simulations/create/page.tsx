@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLoans } from '@/lib/api/loans'
 import { formatCurrency } from '@/lib/utils'
-import { Check } from 'lucide-react'
+import { payoffStrategies } from '@/constants/constants'
 import { useState } from 'react'
 
 function Create() {
@@ -42,7 +42,7 @@ function Create() {
           </div>
           <div>
             <div className='flex flex-col gap-2'>
-              <Label className='text-label text-xs'>Description</Label>
+              <Label className='text-label text-xs'>Description (Optional)</Label>
               <Textarea className='resize-y' placeholder='Notes about the simulation...' />
             </div>
           </div>
@@ -55,7 +55,7 @@ function Create() {
 
           {loans?.map((loan, key) => {
             const isSelected = selectedLoans.has(loan.id)
-            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/1' : ''
+            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/1' : 'hover:bg-secondary/60'
             const checkSelectedStyles = isSelected ? 'bg-primary' : ''
             const interestRateColor =
               loan.interest_rate > 10
@@ -66,11 +66,11 @@ function Create() {
             return (
               <div
                 key={key}
-                className={`${containerSelectedStyles} border p-4  flex items-center justify-between gap-4`}
+                className={`${containerSelectedStyles} card cursor-pointer justify-between gap-4`}
                 onClick={() => toggleSelected(loan.id)}
               >
                 <div
-                  className={` ${checkSelectedStyles} text-black border w-5 h-5 flex items-center justify-center text-xs`}
+                  className={`${checkSelectedStyles} text-black border w-5 h-5 flex items-center justify-center text-xs`}
                 >
                   {isSelected ? '✓' : null}
                 </div>
@@ -92,6 +92,26 @@ function Create() {
             {selectedLoans.size} of {loans?.length} loans selected
           </p>
         </div>
+
+        <hr className='h-px bg-zinc-600/10' />
+
+        <div>
+          <h2 className='font-display text-2xl mb-6'>Choose your payoff strategy</h2>
+
+          <div className='grid grid-cols-2 gap-2'>
+            {payoffStrategies.map((strategy, key) => {
+              return (
+                <div className='card cursor-pointer flex-col items-start h-36'>
+                  <p className='text-lg mb-4'>{strategy.icon}</p>
+                  <h3 className='mb-1'>{strategy.name}</h3>
+                  <p className='text-description'>{strategy.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <hr className='h-px bg-zinc-600/10' />
       </div>
 
       <div className='p-8 flex flex-col'>totals</div>

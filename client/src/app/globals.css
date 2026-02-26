@@ -135,6 +135,10 @@
   @apply text-xs leading-none tracking-widest uppercase text-zinc-500;
 }
 
+@utility card {
+  @apply border bg-card p-4 flex items-center justify-center;
+}
+
 @layer base {
   * {
     @apply border-border outline-none;
