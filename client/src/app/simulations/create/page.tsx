@@ -1,15 +1,27 @@
 'use client'
 
-import { LoanCard } from '@/components/simulations/loan-card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLoans } from '@/lib/api/loans'
+import { formatCurrency } from '@/lib/utils'
+import { Check } from 'lucide-react'
+import { useState } from 'react'
 
 function Create() {
   const { data: loans } = useLoans()
+  const [selectedLoans, setSelectedLoans] = useState<Set<BigInt>>(new Set(loans?.map((l) => l.id)))
+
+  function toggleSelected(id: BigInt) {
+    setSelectedLoans((prev) => {
+      const currentLoans = new Set(prev)
+      currentLoans.has(id) ? currentLoans.delete(id) : currentLoans.add(id)
+      return currentLoans
+    })
+  }
+
   return (
-    <div className='grid g-0 grid-cols-[1fr_380px] h-min-[calc(100vh - 40px)'>
+    <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_430px] h-min-[calc(100vh - 40px)'>
       <div className='p-8 flex flex-col border-r gap-12'>
         <header className='flex flex-col gap-4'>
           <p className='text-label'>New Simulation</p>
@@ -38,12 +50,47 @@ function Create() {
 
         <hr className='h-px bg-zinc-600/10' />
 
-        <div>
-          <h2 className='font-display text-2xl'>Select loans to include</h2>
+        <div className='flex flex-col gap-2'>
+          <h2 className='font-display text-2xl mb-4'>Select loans to include</h2>
 
           {loans?.map((loan, key) => {
-            return <LoanCard key={key} loan={loan} />
+            const isSelected = selectedLoans.has(loan.id)
+            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/1' : ''
+            const checkSelectedStyles = isSelected ? 'bg-primary' : ''
+            const interestRateColor =
+              loan.interest_rate > 10
+                ? 'text-red-500/70'
+                : loan.interest_rate > 5
+                  ? 'text-amber-500/60'
+                  : 'text-green-700/80'
+            return (
+              <div
+                key={key}
+                className={`${containerSelectedStyles} border p-4  flex items-center justify-between gap-4`}
+                onClick={() => toggleSelected(loan.id)}
+              >
+                <div
+                  className={` ${checkSelectedStyles} text-black border w-5 h-5 flex items-center justify-center text-xs`}
+                >
+                  {isSelected ? '✓' : null}
+                </div>
+                <div className='flex justify-between flex-1'>
+                  <div className='flex flex-col'>
+                    <p className='text-sm'>{loan.name}</p>
+                    <p className='text-description'>{loan.lender}</p>
+                  </div>
+                  <div className='flex flex-col items-end'>
+                    <p className='text-sm'>{formatCurrency(loan.current_principal)}</p>
+                    <p className={`${interestRateColor} text-xs`}>{loan.interest_rate}% APR</p>
+                  </div>
+                </div>
+              </div>
+            )
           })}
+
+          <p className='text-description'>
+            {selectedLoans.size} of {loans?.length} loans selected
+          </p>
         </div>
       </div>
 
