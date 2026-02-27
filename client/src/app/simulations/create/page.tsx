@@ -16,10 +16,9 @@ function Create() {
   const [name, setName] = useState<string>('')
   const [description, setDescription] = useState<string>('')
   const [selectedLoans, setSelectedLoans] = useState<Set<BigInt>>(new Set(loans?.map((l) => l.id)))
-  const [strategy, setStrategy] = useState<string>('Avalanche')
+  const [strategy, setStrategy] = useState('Avalanche')
   const [extraPayment, setExtraPayment] = useState<number>(100)
   const [cascade, setCascade] = useState<boolean>(false)
-  console.log(cascade)
 
   function toggleSelected(id: BigInt) {
     setSelectedLoans((prev) => {
@@ -36,6 +35,13 @@ function Create() {
   const selected = loans?.filter((l) => selectedLoans.has(l.id))
   const totalBalance = selected?.reduce((s, l) => s + Number(l.current_principal), 0)
   const totalMinPayment = selected?.reduce((s, l) => s + Number(l.minimum_payment), 0)
+  const payoffOrder = strategy.includes('Interest')
+    ? strategy.includes('Avalanche')
+      ? selected?.sort((a, b) => b.interest_rate - a.interest_rate)
+      : selected?.sort((a, b) => a.interest_rate - b.interest_rate)
+    : strategy.includes('Avalanche')
+      ? selected?.sort((a, b) => b.current_principal - a.current_principal)
+      : selected?.sort((a, b) => a.current_principal - b.current_principal)
 
   return (
     <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px)'>
@@ -183,28 +189,34 @@ function Create() {
               </div>
             </div>
 
-            <div className='mt-4 flex flex-col'>
-              <p className='text-label mb-4'>Payoff Order</p>
-              <div className='flex flex-col gap-2'>
-                {selected?.map((loan, key) => {
-                  return (
-                    <div key={key} className='flex items-center gap-4 border-l-2 px-4 py-2 border-zinc-600'>
-                      <div className='flex items-center justify-center bg-secondary text-xs text-primary w-6 h-6 rounded-full'>
-                        {key + 1}
+            {selected?.length > 0 && (
+              <div className='mt-4 flex flex-col'>
+                <p className='text-label mb-4'>Extra Payment Order</p>
+                <div className='flex flex-col gap-2'>
+                  {payoffOrder?.map((loan, key) => {
+                    return (
+                      <div key={key} className='flex items-center gap-4 border-l-2 px-4 py-2 border-zinc-600'>
+                        <div className='flex items-center justify-center bg-secondary text-xs text-primary w-6 h-6 rounded-full'>
+                          {key + 1}
+                        </div>
+                        <div className='flex flex-1 justify-between'>
+                          <p className='text-sm text-zinc-400'>{loan.name}</p>
+                          {strategy.includes('Interest') ? (
+                            <p className='text-sm text-zinc-400'>{loan.interest_rate}% APR</p>
+                          ) : (
+                            <p className='text-sm text-zinc-400'>{formatCurrency(loan.current_principal)}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className='flex flex-1 justify-between'>
-                        <p className='text-sm text-zinc-400'>{loan.name}</p>
-                        <p className='text-sm text-zinc-400'>{loan.interest_rate}% APR</p>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        <Button disabled={name && description ? false : true} className='w-fit px-8 py-5'>
+        <Button disabled={name && description && selected ? false : true} className='w-fit px-8 py-5'>
           <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
           <ArrowRight />
         </Button>
