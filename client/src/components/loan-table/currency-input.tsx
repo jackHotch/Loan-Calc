@@ -3,7 +3,7 @@ import { Input } from '../ui/input'
 import { useState } from 'react'
 
 export function CurrencyInput({ defaultValue, onChange }: { defaultValue: number; onChange: (value: number) => void }) {
-  const [displayValue, setDisplayValue] = useState(defaultValue ? formatCurrency(defaultValue) : '')
+  const [displayValue, setDisplayValue] = useState(defaultValue ? formatCurrency(defaultValue).replace('$', '') : '')
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value
@@ -22,7 +22,7 @@ export function CurrencyInput({ defaultValue, onChange }: { defaultValue: number
     if (displayValue) {
       const num = parseFloat(displayValue)
       if (!isNaN(num)) {
-        setDisplayValue(formatCurrency(num))
+        setDisplayValue(formatCurrency(num).replace('$', ''))
       }
     }
   }

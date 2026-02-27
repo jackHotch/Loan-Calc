@@ -7,10 +7,19 @@ import { useLoans } from '@/lib/api/loans'
 import { formatCurrency } from '@/lib/utils'
 import { payoffStrategies } from '@/constants/constants'
 import { useState } from 'react'
+import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
+import { ArrowRight } from 'lucide-react'
 
 function Create() {
   const { data: loans } = useLoans()
+  const [name, setName] = useState<string>('')
+  const [description, setDescription] = useState<string>('')
   const [selectedLoans, setSelectedLoans] = useState<Set<BigInt>>(new Set(loans?.map((l) => l.id)))
+  const [strategy, setStrategy] = useState<string>('Avalanche')
+  const [extraPayment, setExtraPayment] = useState<number>(100)
+  const [cascade, setCascade] = useState<boolean>(false)
+  console.log(cascade)
 
   function toggleSelected(id: BigInt) {
     setSelectedLoans((prev) => {
@@ -20,8 +29,16 @@ function Create() {
     })
   }
 
+  function addToExtraPayment(num: number) {
+    setExtraPayment((prev) => prev + num)
+  }
+
+  const selected = loans?.filter((l) => selectedLoans.has(l.id))
+  const totalBalance = selected?.reduce((s, l) => s + Number(l.current_principal), 0)
+  const totalMinPayment = selected?.reduce((s, l) => s + Number(l.minimum_payment), 0)
+
   return (
-    <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_430px] h-min-[calc(100vh - 40px)'>
+    <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px)'>
       <div className='p-8 flex flex-col border-r gap-12'>
         <header className='flex flex-col gap-4'>
           <p className='text-label'>New Simulation</p>
@@ -38,12 +55,17 @@ function Create() {
         <div className='flex flex-col gap-8'>
           <div className='flex flex-col gap-2'>
             <Label className='text-label text-xs'>Simulation Name</Label>
-            <Input placeholder='e.g. Salary Raise 2025' />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder='e.g. Salary Raise 2025' />
           </div>
           <div>
             <div className='flex flex-col gap-2'>
               <Label className='text-label text-xs'>Description (Optional)</Label>
-              <Textarea className='resize-y' placeholder='Notes about the simulation...' />
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className='resize-y'
+                placeholder='Notes about the simulation...'
+              />
             </div>
           </div>
         </div>
@@ -55,7 +77,7 @@ function Create() {
 
           {loans?.map((loan, key) => {
             const isSelected = selectedLoans.has(loan.id)
-            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/1' : 'hover:bg-secondary/60'
+            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/2' : 'hover:bg-secondary/60'
             const checkSelectedStyles = isSelected ? 'bg-primary' : ''
             const interestRateColor =
               loan.interest_rate > 10
@@ -89,7 +111,8 @@ function Create() {
           })}
 
           <p className='text-description'>
-            {selectedLoans.size} of {loans?.length} loans selected
+            {selectedLoans.size} of {loans?.length} loans selected · {formatCurrency(totalBalance)} total ·{' '}
+            {formatCurrency(totalMinPayment)} /mo minimum
           </p>
         </div>
 
@@ -99,12 +122,18 @@ function Create() {
           <h2 className='font-display text-2xl mb-6'>Choose your payoff strategy</h2>
 
           <div className='grid grid-cols-2 gap-2'>
-            {payoffStrategies.map((strategy, key) => {
+            {payoffStrategies.map((s, key) => {
+              const selectedStyles =
+                strategy === s.name ? 'border-2 border-primary/80 bg-primary/4' : 'hover:border-zinc-600'
               return (
-                <div className='card cursor-pointer flex-col items-start h-36'>
-                  <p className='text-lg mb-4'>{strategy.icon}</p>
-                  <h3 className='mb-1'>{strategy.name}</h3>
-                  <p className='text-description'>{strategy.description}</p>
+                <div
+                  key={key}
+                  className={`${selectedStyles} card cursor-pointer flex-col items-start h-36`}
+                  onClick={() => setStrategy(s.name)}
+                >
+                  <p className='text-lg mb-4'>{s.icon}</p>
+                  <h3 className='mb-1'>{s.name}</h3>
+                  <p className='text-description'>{s.description}</p>
                 </div>
               )
             })}
@@ -112,6 +141,73 @@ function Create() {
         </div>
 
         <hr className='h-px bg-zinc-600/10' />
+
+        <div>
+          <h2 className='font-display text-2xl mb-6'>Extra monthly payment</h2>
+
+          <div className='flex flex-col gap-2'>
+            <div className='card justify-between items-center'>
+              <div className='flex flex-col'>
+                <p className='text-sm text-zinc-400'>Additional amount on top of minimum</p>
+                <p className='text-description'>Total monthly: {formatCurrency(totalMinPayment + extraPayment)}</p>
+              </div>
+
+              <div className='flex gap-6 items-center'>
+                <button
+                  onClick={() => addToExtraPayment(-25)}
+                  className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
+                >
+                  -
+                </button>
+                <div className='text-primary'>{formatCurrency(extraPayment)}</div>
+                <button
+                  onClick={() => addToExtraPayment(25)}
+                  className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setCascade((prev) => !prev)}
+              className={`${cascade ? 'border-primary/35 bg-primary/2' : 'hover:border-zinc-700'} card cursor-pointer gap-4`}
+            >
+              <Switch checked={cascade} className='pointer-events-none' />
+              <div>
+                <p className='text-sm'>Roll over freed payments</p>
+                <p className='text-description'>
+                  When a loan is payed off, redirect its freed minimum payment as extra payment towards the next loan in
+                  your strategy order
+                </p>
+              </div>
+            </div>
+
+            <div className='mt-4 flex flex-col'>
+              <p className='text-label mb-4'>Payoff Order</p>
+              <div className='flex flex-col gap-2'>
+                {selected?.map((loan, key) => {
+                  return (
+                    <div key={key} className='flex items-center gap-4 border-l-2 px-4 py-2 border-zinc-600'>
+                      <div className='flex items-center justify-center bg-secondary text-xs text-primary w-6 h-6 rounded-full'>
+                        {key + 1}
+                      </div>
+                      <div className='flex flex-1 justify-between'>
+                        <p className='text-sm text-zinc-400'>{loan.name}</p>
+                        <p className='text-sm text-zinc-400'>{loan.interest_rate}% APR</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Button disabled={name && description ? false : true} className='w-fit px-8 py-5'>
+          <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
+          <ArrowRight />
+        </Button>
       </div>
 
       <div className='p-8 flex flex-col'>totals</div>
