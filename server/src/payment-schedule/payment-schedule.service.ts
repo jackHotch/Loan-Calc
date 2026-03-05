@@ -33,7 +33,7 @@ export class PaymentScheduleService {
       new Date(startDate),
       loan.payment_day_of_month,
     );
-    let monthlyRate = new Decimal(loan.interest_rate)
+    const monthlyRate = new Decimal(loan.interest_rate)
       .div(100)
       .div(12)
       .toDecimalPlaces(3);

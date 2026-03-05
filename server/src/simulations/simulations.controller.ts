@@ -1,15 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { SimulationsService } from './simulations.service';
 import { CreateSimulationDto } from './dto/create-simulation.dto';
 import { UpdateSimulationDto } from './dto/update-simulation.dto';
+import { User } from 'src/auth/user.decorator';
+import { ClerkAuthGuard } from 'src/auth/clerk-auth.guard';
 
 @Controller('simulations')
+@UseGuards(ClerkAuthGuard)
 export class SimulationsController {
   constructor(private readonly simulationsService: SimulationsService) {}
 
   @Post()
-  create(@Body() createSimulationDto: CreateSimulationDto) {
-    return this.simulationsService.create(createSimulationDto);
+  create(@User() userId: BigInt, @Body() simulation: CreateSimulationDto) {
+    return this.simulationsService.create(userId, simulation);
   }
 
   @Get()
@@ -23,7 +35,10 @@ export class SimulationsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSimulationDto: UpdateSimulationDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateSimulationDto: UpdateSimulationDto,
+  ) {
     return this.simulationsService.update(+id, updateSimulationDto);
   }
 

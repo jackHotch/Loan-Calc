@@ -29,7 +29,7 @@ export class CreateSimulationDto {
 
   @IsNumber()
   @Min(0)
-  extra_monthly_amount: number;
+  extra_monthly_payment: number;
 
   @IsBoolean()
   cascade: boolean;
@@ -37,5 +37,5 @@ export class CreateSimulationDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsNumber({}, { each: true })
-  loan_ids: number[];
+  loan_ids: BigInt[];
 }

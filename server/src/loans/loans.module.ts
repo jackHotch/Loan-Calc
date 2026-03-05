@@ -7,5 +7,6 @@ import { PaymentScheduleModule } from 'src/payment-schedule/payment-schedule.mod
   controllers: [LoansController],
   providers: [LoansService],
   imports: [PaymentScheduleModule],
+  exports: [LoansService],
 })
 export class LoansModule {}
