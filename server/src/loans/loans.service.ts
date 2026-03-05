@@ -15,15 +15,14 @@ export class LoansService {
   async create(userId: BigInt, loan: CreateLoanDto) {
     const result = await this.db.query(
       `
-      INSERT INTO loans (user_id, name, lender, starting_principal, current_principal,
+      INSERT INTO loans (user_id, name, lender, starting_principal, 
         interest_rate, minimum_payment, extra_payment, extra_payment_start_date, start_date, payment_day_of_month)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *;`,
       [
         userId,
         loan.name,
         loan.lender,
-        loan.starting_principal,
         loan.starting_principal,
         loan.interest_rate,
         loan.minimum_payment,
@@ -35,7 +34,6 @@ export class LoansService {
     );
 
     const createdLoan = result[0] as LoanDb;
-    console.log(createdLoan);
 
     const createdSchedule =
       await this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
@@ -60,17 +58,32 @@ export class LoansService {
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
-        l.current_principal,
         l.payment_day_of_month,
-        l.payoff_date,
         l.start_date,
         l.extra_payment_start_date,
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
-        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
+        last_actual.remaining_principal AS current_principal,
+        last_schedule.payment_date AS payoff_date
       FROM
         loans l
       LEFT JOIN
         payment_schedules ps ON l.id = ps.loan_id
+      LEFT JOIN LATERAL (
+        SELECT remaining_principal
+        FROM payment_schedules
+        WHERE loan_id = l.id
+          AND is_actual = true
+        ORDER BY payment_number DESC
+        LIMIT 1
+      ) last_actual ON true
+      LEFT JOIN LATERAL (
+        SELECT payment_date
+        FROM payment_schedules
+        WHERE loan_id = l.id
+        ORDER BY payment_number DESC
+        LIMIT 1
+      ) last_schedule ON true
       WHERE
         l.user_id = $1
       GROUP BY
@@ -82,11 +95,11 @@ export class LoansService {
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
-        l.current_principal,
         l.payment_day_of_month,
-        l.payoff_date,
         l.start_date,
-        l.extra_payment_start_date
+        l.extra_payment_start_date,
+        last_actual.remaining_principal,
+        last_schedule.payment_date
       `,
       [userId],
     );
@@ -104,20 +117,35 @@ export class LoansService {
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
-        l.current_principal,
         l.payment_day_of_month,
-        l.payoff_date,
         l.start_date,
         l.extra_payment_start_date,
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
-        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
+        last_actual.remaining_principal AS current_principal,
+        last_schedule.payment_date AS payoff_date
       FROM
         loans l
       LEFT JOIN
         payment_schedules ps ON l.id = ps.loan_id
+      LEFT JOIN LATERAL (
+        SELECT remaining_principal
+        FROM payment_schedules
+        WHERE loan_id = l.id
+          AND is_actual = true
+        ORDER BY payment_number DESC
+        LIMIT 1
+      ) last_actual ON true
+      LEFT JOIN LATERAL (
+        SELECT payment_date
+        FROM payment_schedules
+        WHERE loan_id = l.id
+        ORDER BY payment_number DESC
+        LIMIT 1
+      ) last_schedule ON true
       WHERE
         l.user_id = $1
-      AND ps.loan_id = $2
+        AND ps.loan_id = $2
       GROUP BY
         l.id,
         l.user_id,
@@ -127,11 +155,11 @@ export class LoansService {
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
-        l.current_principal,
         l.payment_day_of_month,
-        l.payoff_date,
         l.start_date,
-        l.extra_payment_start_date
+        l.extra_payment_start_date,
+        last_actual.remaining_principal,
+        last_schedule.payment_date
       `,
       [userId, loanId],
     );

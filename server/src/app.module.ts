@@ -9,6 +9,7 @@ import { LoansModule } from './loans/loans.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ClerkUserInterceptor } from './auth/clerk-user.interceptor';
 import { PaymentScheduleModule } from './payment-schedule/payment-schedule.module';
+import { SimulationsModule } from './simulations/simulations.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PaymentScheduleModule } from './payment-schedule/payment-schedule.modul
     DatabaseModule,
     LoansModule,
     PaymentScheduleModule,
+    SimulationsModule,
   ],
   controllers: [AppController],
   providers: [

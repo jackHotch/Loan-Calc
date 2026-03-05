@@ -207,16 +207,6 @@ export class PaymentScheduleService {
       params,
     );
 
-    const payoffDate = schedule.at(-1)?.payment_date;
-
-    await this.db.query(
-      `
-      UPDATE loans 
-      SET payoff_date = $1
-      WHERE id = $2`,
-      [payoffDate, loanId],
-    );
-
     return this.getSchedules(loanId, 'loan');
   }
 
@@ -254,16 +244,13 @@ export class PaymentScheduleService {
     const today = new Date();
     let loanIdCondition = ``;
     let values: any[] = [today];
-    console.log('cron time !!!!!!! - ', today);
 
     if (loanId) {
       loanIdCondition = `AND loan_id = $2`;
       values.push(loanId);
     }
 
-    console.log('hit cron !!!!!!!');
-
-    const payments = await this.db.query(
+    await this.db.query(
       `
       UPDATE payment_schedules
       SET is_actual = TRUE
@@ -274,25 +261,5 @@ export class PaymentScheduleService {
       `,
       values,
     );
-
-    const uniqueLoanIds = [...new Set(payments.map((p) => Number(p.loan_id)))];
-
-    for (const updatedLoanId of uniqueLoanIds) {
-      await this.db.query(
-        `
-      UPDATE loans
-      SET current_principal = (
-        SELECT remaining_principal
-        FROM payment_schedules
-        WHERE loan_id = $1
-        AND is_actual = TRUE
-        ORDER BY payment_date DESC
-        LIMIT 1
-      )
-      WHERE id = $1
-      `,
-        [updatedLoanId],
-      );
-    }
   }
 }

@@ -177,7 +177,7 @@ function Create() {
 
             <div
               onClick={() => setCascade((prev) => !prev)}
-              className={`${cascade ? 'border-primary/35 bg-primary/2' : 'hover:border-zinc-700'} card cursor-pointer gap-4`}
+              className={`${cascade ? 'border-primary/35 bg-primary/2' : 'hover:border-zinc-700'} card cursor-pointer gap-4 justify-start`}
             >
               <Switch checked={cascade} className='pointer-events-none' />
               <div>
