@@ -29,13 +29,7 @@ export class SimulationsService {
       simulation.cascade,
     );
 
-    const savedSimulation = this.saveSimulation(
-      userId,
-      simulation,
-      calculatedSimulation,
-    );
-
-    return savedSimulation;
+    return this.saveSimulation(userId, simulation, calculatedSimulation);
   }
 
   async runSimulation(
@@ -186,7 +180,6 @@ export class SimulationsService {
       createdSimulation.id,
       ...calculatedSimulation.flatMap((s) => [s.id, s.payoffOrder]),
     ];
-    console.log(params);
 
     const createdSimulationLoans = await this.db.query(
       `
@@ -197,21 +190,32 @@ export class SimulationsService {
       params,
     );
 
-    // loop through each created simulation loan and save the schedule
+    const createdSimulationPaymentSchedules: any = [];
 
-    // console.log(calculatedSimulation);
+    for (const loan of calculatedSimulation) {
+      const simulationLoan = createdSimulationLoans.find(
+        (l) => l.loan_id == loan.id,
+      );
+      createdSimulationPaymentSchedules.push(
+        await this.paymentSchedules.saveSchedule(
+          simulationLoan.id,
+          'simulation',
+          loan.schedule,
+        ),
+      );
+    }
 
-    // const createdSimulationPaymentSchedules =
-    //   await this.paymentSchedules.saveSchedule(
-    //     createdSimulation.id,
-    //     'simulation',
-    //     calculatedSimulation.schedule,
-    //   );
+    console.log(createdSimulationPaymentSchedules[0]);
 
     return {
       ...createdSimulation,
-      loans: [...createdSimulationLoans],
-      // paymentSchedule: createdSimulationPaymentSchedules,
+      loans: createdSimulationLoans.map((loan) => ({
+        ...loan,
+        paymentSchedule:
+          createdSimulationPaymentSchedules.find(
+            (s) => s[0]?.simulation_loan_id === loan.id,
+          ) ?? [],
+      })),
     };
   }
 

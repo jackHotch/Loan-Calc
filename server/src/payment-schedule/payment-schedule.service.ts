@@ -218,7 +218,7 @@ export class PaymentScheduleService {
       params,
     );
 
-    return this.getSchedules(loanId, 'loan');
+    return this.getSchedules(loanId, type);
   }
 
   async getSchedules(id: BigInt, type: 'loan' | 'simulation') {
@@ -227,7 +227,7 @@ export class PaymentScheduleService {
     if (type === 'loan') {
       idColumn = 'loan_id';
     } else {
-      idColumn = 'simulation_id';
+      idColumn = 'simulation_loan_id';
     }
 
     return await this.db.query(
