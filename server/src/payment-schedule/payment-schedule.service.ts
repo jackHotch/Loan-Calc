@@ -98,7 +98,7 @@ export class PaymentScheduleService {
     const schedule: PaymentScheduleEntry[] =
       this.calculatePaymentSchedule(paymentScheduleInput);
 
-    await this.saveSchedule(loan.id, schedule);
+    await this.saveSchedule(loan.id, 'loan', schedule);
 
     await this.processAllPendingPayments(loan.id);
 
@@ -177,14 +177,19 @@ export class PaymentScheduleService {
       },
     );
 
-    await this.saveSchedule(loan.id, schedules);
+    await this.saveSchedule(loan.id, 'loan', schedules);
 
     await this.processAllPendingPayments(loan.id);
 
     return this.getSchedules(loan.id, 'loan');
   }
 
-  async saveSchedule(loanId: BigInt, schedule: PaymentScheduleEntry[]) {
+  async saveSchedule(
+    loanId: BigInt,
+    type: 'loan' | 'simulation',
+    schedule: PaymentScheduleEntry[],
+  ) {
+    const idColumn = type === 'loan' ? 'loan_id' : 'simulation_loan_id';
     const values = schedule
       .map((_, i) => {
         const offset = i * 6 + 2;
@@ -206,7 +211,7 @@ export class PaymentScheduleService {
 
     await this.db.query(
       `
-      INSERT INTO payment_schedules (loan_id, payment_number, payment_date, principal_paid, 
+      INSERT INTO payment_schedules (${idColumn}, payment_number, payment_date, principal_paid, 
         interest_paid, extra_payment, remaining_principal)
         VALUES ${values}
         `,

@@ -22,7 +22,6 @@ export class SimulationsService {
       loans.push(await this.loanService.findOne(userId, loanId));
     }
 
-    // run simulation
     const calculatedSimulation = await this.runSimulation(
       loans,
       simulation.strategy_type,
@@ -30,13 +29,13 @@ export class SimulationsService {
       simulation.cascade,
     );
 
-    // add row to simulation table
+    const savedSimulation = this.saveSimulation(
+      userId,
+      simulation,
+      calculatedSimulation,
+    );
 
-    // add rows to simulation_loans
-
-    // add rows to simulation payment_schedules
-
-    return calculatedSimulation;
+    return savedSimulation;
   }
 
   async runSimulation(
@@ -153,6 +152,67 @@ export class SimulationsService {
     }
 
     return loanStates;
+  }
+
+  async saveSimulation(
+    userId: BigInt,
+    simulation: CreateSimulationDto,
+    calculatedSimulation,
+  ) {
+    const [createdSimulation]: any = await this.db.query(
+      `
+      INSERT INTO simulations (user_id, name, description, strategy_type, cascade, extra_payment)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+      `,
+      [
+        userId,
+        simulation.name,
+        simulation.description,
+        simulation.strategy_type,
+        simulation.cascade,
+        simulation.extra_monthly_payment,
+      ],
+    );
+
+    const values = simulation.loan_ids
+      .map((_, i) => {
+        const offset = i * 2 + 2;
+        return `($1, $${offset}, $${offset + 1})`;
+      })
+      .join(',');
+
+    const params = [
+      createdSimulation.id,
+      ...calculatedSimulation.flatMap((s) => [s.id, s.payoffOrder]),
+    ];
+    console.log(params);
+
+    const createdSimulationLoans = await this.db.query(
+      `
+      INSERT INTO simulation_loans (simulation_id, loan_id, payoff_order)
+      VALUES ${values}
+      RETURNING *
+      `,
+      params,
+    );
+
+    // loop through each created simulation loan and save the schedule
+
+    // console.log(calculatedSimulation);
+
+    // const createdSimulationPaymentSchedules =
+    //   await this.paymentSchedules.saveSchedule(
+    //     createdSimulation.id,
+    //     'simulation',
+    //     calculatedSimulation.schedule,
+    //   );
+
+    return {
+      ...createdSimulation,
+      loans: [...createdSimulationLoans],
+      // paymentSchedule: createdSimulationPaymentSchedules,
+    };
   }
 
   findAll() {
