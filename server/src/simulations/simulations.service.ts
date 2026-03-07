@@ -23,7 +23,7 @@ export class SimulationsService {
     }
 
     // run simulation
-    const calculateSimulation = this.runSimulation(
+    const calculatedSimulation = await this.runSimulation(
       loans,
       simulation.strategy_type,
       simulation.extra_monthly_payment,
@@ -36,28 +36,73 @@ export class SimulationsService {
 
     // add rows to simulation payment_schedules
 
-    return loans;
+    return calculatedSimulation;
   }
 
-  runSimulation(
+  async runSimulation(
     loans: LoanDb[],
     strategy: StrategyType,
     extraPayment: number,
     cascade: boolean,
   ) {
-    const loanStates = loans.map((l) => ({
-      ...l,
-      simulationBalance: new Decimal(l.current_principal),
-      payoffOrder: null,
-      schedule: [],
-    }));
+    const payoffOrder = strategy.includes('Interest')
+      ? strategy.includes('Avalanche')
+        ? loans?.sort((a, b) => b.interest_rate - a.interest_rate)
+        : loans?.sort((a, b) => a.interest_rate - b.interest_rate)
+      : strategy.includes('Avalanche')
+        ? loans?.sort((a, b) => b.current_principal - a.current_principal)
+        : loans?.sort((a, b) => a.current_principal - b.current_principal);
 
-    let extraPaymentPool = extraPayment;
-    let month = 0;
+    const loanStates = await Promise.all(
+      payoffOrder.map(async (l) => {
+        const lastActualPayment: any =
+          await this.paymentSchedules.getLastActualPayment(l.id);
+        let simulationStartDate = new Date(lastActualPayment.payment_date);
+
+        return {
+          ...l,
+          simulationBalance: new Decimal(l.current_principal),
+          payoffOrder: -1,
+          extraPaymentTarget: false,
+          simulationStartdate: simulationStartDate,
+          lastActualPaymentNumber: lastActualPayment.payment_number,
+          schedule: new Array(),
+        };
+      }),
+    );
+
+    let extraPaymentPool = new Decimal(extraPayment);
+    let monthCount = 0;
     let payoffOrderCounter = 1;
 
-    while (loanStates.some((s) => s.simulationBalance.gt(0)) && month < 600) {
+    while (
+      loanStates.some((s) => s.simulationBalance.gt(0)) &&
+      monthCount < 600
+    ) {
+      monthCount++;
+
+      for (const l of loanStates) {
+        l.extraPaymentTarget = false;
+      }
+
+      const target = loanStates.find((l) => l.simulationBalance.gt(0));
+
+      if (target) {
+        target.extraPaymentTarget = true;
+      }
+
       for (const loan of loanStates) {
+        if (loan.simulationBalance.lte(0)) continue;
+
+        const paymentDate = new Date(loan.simulationStartdate);
+        paymentDate.setMonth(paymentDate.getMonth() + monthCount);
+
+        let extraPayment: Decimal =
+          loan.extraPaymentTarget === true
+            ? new Decimal(extraPaymentPool)
+            : new Decimal(0);
+        let remainingPrincipal: Decimal = new Decimal(loan.simulationBalance);
+
         const monthlyRate = new Decimal(loan.interest_rate)
           .div(100)
           .div(12)
@@ -67,9 +112,11 @@ export class SimulationsService {
           .mul(monthlyRate)
           .toDecimalPlaces(2);
 
-        let totalPayment: Decimal = new Decimal(loan.minimum_payment).plus(
-          extraPaymentPool,
-        );
+        let totalPayment: Decimal = new Decimal(loan.minimum_payment);
+
+        if (loan.extraPaymentTarget === true) {
+          totalPayment = totalPayment.plus(extraPaymentPool);
+        }
 
         let monthlyPrincipalPaid = new Decimal(totalPayment)
           .minus(monthlyInterestPaid)
@@ -80,9 +127,32 @@ export class SimulationsService {
           extraPayment = new Decimal(0);
         }
 
-        remainingPrincipal = remainingPrincipal.minus(monthlyPrincipalPaid);
+        remainingPrincipal = loan.simulationBalance.minus(monthlyPrincipalPaid);
+
+        loan.schedule.push({
+          payment_number:
+            loan.lastActualPaymentNumber + loan.schedule.length + 1,
+          payment_date: new Date(paymentDate),
+          principal_paid: monthlyPrincipalPaid.toDecimalPlaces(2).toNumber(),
+          interest_paid: monthlyInterestPaid.toDecimalPlaces(2).toNumber(),
+          extra_payment: extraPayment.toDecimalPlaces(2).toNumber(),
+          remaining_principal: remainingPrincipal.toDecimalPlaces(2).toNumber(),
+        });
+
+        loan.simulationBalance = remainingPrincipal;
+      }
+
+      for (const s of loanStates) {
+        if (s.simulationBalance.eq(0) && s.payoffOrder === -1) {
+          s.payoffOrder = payoffOrderCounter++;
+          if (cascade) {
+            extraPaymentPool = extraPaymentPool.plus(s.minimum_payment);
+          }
+        }
       }
     }
+
+    return loanStates;
   }
 
   findAll() {

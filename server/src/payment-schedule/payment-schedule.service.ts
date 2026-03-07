@@ -105,8 +105,8 @@ export class PaymentScheduleService {
     return await this.getSchedules(loan.id, 'loan');
   }
 
-  async generateScheduleForExistingLoan(loan: LoanDb) {
-    const lastActualPayment = await this.db.query(
+  async getLastActualPayment(loanId: BigInt): Promise<any> {
+    const result = await this.db.query(
       `
       SELECT payment_number, payment_date, remaining_principal
       FROM payment_schedules
@@ -115,8 +115,14 @@ export class PaymentScheduleService {
       ORDER BY payment_date DESC
       LIMIT 1
       `,
-      [loan.id],
+      [loanId],
     );
+
+    return result[0];
+  }
+
+  async generateScheduleForExistingLoan(loan: LoanDb) {
+    const lastActualPayment = await this.getLastActualPayment(loan.id);
 
     const paymentScheduleInput: PaymentScheduleInput = {
       starting_principal: loan.starting_principal,
@@ -132,7 +138,7 @@ export class PaymentScheduleService {
     let startingPrincipal: number;
     let startDate: Date;
 
-    if (lastActualPayment.length > 0) {
+    if (lastActualPayment) {
       const lastPayment = lastActualPayment[0];
       startFromPaymentNumber = lastPayment.payment_number + 1;
       startingPrincipal = lastPayment.remaining_principal;
