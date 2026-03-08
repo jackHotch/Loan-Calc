@@ -159,7 +159,6 @@ export class SimulationsService {
     calculatedSimulation,
     createdSimulation?,
   ) {
-    console.log(simulation);
     if (!createdSimulation) {
       [createdSimulation] = await this.db.query(
         `
@@ -417,6 +416,7 @@ export class SimulationsService {
     const baseline = await this.loanService.getBaselineSummary(userId, loanIds);
 
     return {
+      simulation_id: Number(simulationId),
       simulation: {
         ...simulation.totals,
         months_until_payoff: this.monthsUntilPayoff(

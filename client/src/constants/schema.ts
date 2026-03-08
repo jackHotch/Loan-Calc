@@ -49,6 +49,29 @@ export const loanFormSchema = z.object({
   extra_payment_start_date: z.date(),
 })
 
+export const StrategyType = {
+  AVALANCHE: 'Avalanche',
+  SNOWBALL: 'Snowball',
+  AVALANCHE_INTEREST_FOCUSED: 'Avalanche - Interest Focused',
+  SNOWBALL_INTEREST_FOCUSED: 'Snowball - Interest Focused',
+} as const
+
+export const createSimulationSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  strategy_type: z.enum([
+    StrategyType.AVALANCHE,
+    StrategyType.SNOWBALL,
+    StrategyType.AVALANCHE_INTEREST_FOCUSED,
+    StrategyType.SNOWBALL_INTEREST_FOCUSED,
+  ]),
+  extra_payment: z.number().min(0),
+  cascade: z.boolean(),
+  loan_ids: z.array(z.number()).nonempty(),
+})
+
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
+export type CreateSimulationInput = z.infer<typeof createSimulationSchema>
+export type StrategyType = (typeof StrategyType)[keyof typeof StrategyType]

@@ -10,17 +10,22 @@ import { useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { ArrowRight } from 'lucide-react'
+import { useCreateSimulation } from '@/lib/api/simulations'
+import { StrategyType } from '@/constants/schema'
+import { SimulationResult } from '@/constants/types'
 
 function Create() {
   const { data: loans } = useLoans()
+  const createSimulation = useCreateSimulation()
+  const [currentSimulation, setCurrentSimulation] = useState<SimulationResult>()
   const [name, setName] = useState<string>('')
   const [description, setDescription] = useState<string>('')
-  const [selectedLoans, setSelectedLoans] = useState<Set<BigInt>>(new Set(loans?.map((l) => l.id)))
-  const [strategy, setStrategy] = useState('Avalanche')
+  const [selectedLoans, setSelectedLoans] = useState<Set<bigint>>(new Set(loans?.map((l) => l.id)))
+  const [strategyType, setStrategyType] = useState<StrategyType>(StrategyType.AVALANCHE)
   const [extraPayment, setExtraPayment] = useState<number>(100)
   const [cascade, setCascade] = useState<boolean>(false)
 
-  function toggleSelected(id: BigInt) {
+  function toggleSelected(id: bigint) {
     setSelectedLoans((prev) => {
       const currentLoans = new Set(prev)
       currentLoans.has(id) ? currentLoans.delete(id) : currentLoans.add(id)
@@ -32,14 +37,27 @@ function Create() {
     setExtraPayment((prev) => prev + num)
   }
 
+  async function handleRunSimulation() {
+    const simulation: SimulationResult = await createSimulation.mutateAsync({
+      name,
+      description,
+      strategy_type: strategyType,
+      extra_payment: extraPayment,
+      cascade,
+      loan_ids: Array.from(selectedLoans).map(Number),
+    })
+
+    setCurrentSimulation(simulation)
+  }
+
   const selected = loans?.filter((l) => selectedLoans.has(l.id))
   const totalBalance = selected?.reduce((s, l) => s + Number(l.current_principal), 0)
   const totalMinPayment = selected?.reduce((s, l) => s + Number(l.minimum_payment), 0)
-  const payoffOrder = strategy.includes('Interest')
-    ? strategy.includes('Avalanche')
+  const payoffOrder = strategyType.includes('Interest')
+    ? strategyType.includes('Avalanche')
       ? selected?.sort((a, b) => b.interest_rate - a.interest_rate)
       : selected?.sort((a, b) => a.interest_rate - b.interest_rate)
-    : strategy.includes('Avalanche')
+    : strategyType.includes('Avalanche')
       ? selected?.sort((a, b) => b.current_principal - a.current_principal)
       : selected?.sort((a, b) => a.current_principal - b.current_principal)
 
@@ -130,12 +148,12 @@ function Create() {
           <div className='grid grid-cols-2 gap-2'>
             {payoffStrategies.map((s, key) => {
               const selectedStyles =
-                strategy === s.name ? 'border-2 border-primary/80 bg-primary/4' : 'hover:border-zinc-600'
+                strategyType === s.name ? 'border-2 border-primary/80 bg-primary/4' : 'hover:border-zinc-600'
               return (
                 <div
                   key={key}
                   className={`${selectedStyles} card cursor-pointer flex-col items-start h-36`}
-                  onClick={() => setStrategy(s.name)}
+                  onClick={() => setStrategyType(s.name)}
                 >
                   <p className='text-lg mb-4'>{s.icon}</p>
                   <h3 className='mb-1'>{s.name}</h3>
@@ -201,7 +219,7 @@ function Create() {
                         </div>
                         <div className='flex flex-1 justify-between'>
                           <p className='text-sm text-zinc-400'>{loan.name}</p>
-                          {strategy.includes('Interest') ? (
+                          {strategyType.includes('Interest') ? (
                             <p className='text-sm text-zinc-400'>{loan.interest_rate}% APR</p>
                           ) : (
                             <p className='text-sm text-zinc-400'>{formatCurrency(loan.current_principal)}</p>
@@ -216,13 +234,19 @@ function Create() {
           </div>
         </div>
 
-        <Button disabled={name && description && selected ? false : true} className='w-fit px-8 py-5'>
+        <Button
+          onClick={handleRunSimulation}
+          disabled={name && description && selected ? false : true}
+          className='w-fit px-8 py-5'
+        >
           <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
           <ArrowRight />
         </Button>
       </div>
 
-      <div className='p-8 flex flex-col'>totals</div>
+      <div className='p-8 flex flex-col'>
+        {currentSimulation && <div>{currentSimulation.simulation.months_until_payoff}</div>}
+      </div>
     </div>
   )
 }
