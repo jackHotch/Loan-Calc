@@ -31,3 +31,10 @@ export const payoffStrategies = [
     ascending: false,
   },
 ]
+
+export const strategyDisplayNames: Record<StrategyType, string> = {
+  [StrategyType.AVALANCHE]: 'Avalanche',
+  [StrategyType.SNOWBALL]: 'Snowball',
+  [StrategyType.AVALANCHE_INTEREST_FOCUSED]: 'Avalanche (Interest)',
+  [StrategyType.SNOWBALL_INTEREST_FOCUSED]: 'Snowball (Interest)',
+}

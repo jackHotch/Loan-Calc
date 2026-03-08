@@ -32,7 +32,7 @@ export default function RootLayout({
               <Header />
               <SidebarProvider>
                 <AppSidebar />
-                <SidebarInset>
+                <SidebarInset className='overflow-visible'>
                   <SiteHeader />
                   <Toaster
                     icons={{

@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLoans } from '@/lib/api/loans'
 import { formatCurrency } from '@/lib/utils'
-import { payoffStrategies } from '@/constants/constants'
+import { payoffStrategies, strategyDisplayNames } from '@/constants/constants'
 import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { useCreateSimulation, useSimulation, useSimulationComparison, useUpdateS
 import { StrategyType } from '@/constants/schema'
 import { SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { Progress } from '@/components/ui/progress'
 
 function Create() {
   const router = useRouter()
@@ -45,6 +46,22 @@ function Create() {
       setCurrentSimulationComparison(simulationComparison)
     }
   }, [existingSimulation, simulationComparison, loans])
+
+  const isModified = existingSimulation
+    ? name !== existingSimulation.name ||
+      description !== existingSimulation.description ||
+      strategyType !== existingSimulation.strategy_type ||
+      extraPayment !== Number(existingSimulation.extra_payment) ||
+      cascade !== existingSimulation.cascade ||
+      !sameArrays(
+        Array.from(selectedLoans).map(Number),
+        existingSimulation.loans.map((l) => l.loan_id),
+      )
+    : false
+
+  function sameArrays(a: number[], b: number[]) {
+    return a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i])
+  }
 
   function setSimulationId(id: number) {
     const params = new URLSearchParams(searchParams.toString())
@@ -109,8 +126,8 @@ function Create() {
   }
 
   return (
-    <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px)'>
-      <div className='p-8 flex flex-col border-r gap-12'>
+    <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px) items-start'>
+      <div className='p-8 flex flex-col border-r gap-12' style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
         <header className='flex flex-col gap-4'>
           <p className='text-label'>New Simulation</p>
           <h1 className='font-display text-5xl font-light'>
@@ -126,7 +143,7 @@ function Create() {
         <div className='flex flex-col gap-8'>
           <div className='flex flex-col gap-2'>
             <Label className='text-label text-xs'>Simulation Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder='e.g. Salary Raise 2025' />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder='e.g. Salary Raise' />
           </div>
           <div>
             <div className='flex flex-col gap-2'>
@@ -148,7 +165,7 @@ function Create() {
 
           {loans?.map((loan, key) => {
             const isSelected = selectedLoans.has(BigInt(loan.id))
-            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/2' : 'hover:bg-secondary/60'
+            const containerSelectedStyles = isSelected ? 'border-primary/35 bg-primary/3' : 'hover:bg-secondary/60'
             const checkSelectedStyles = isSelected ? 'bg-primary' : ''
             const interestRateColor =
               loan.interest_rate > 10
@@ -287,17 +304,90 @@ function Create() {
         </Button>
       </div>
 
-      <div className='p-8 flex flex-col'>
-        {currentSimulationComparison && (
-          <div>
-            <p className='text-label text-primary/35'>Projected Savings</p>
-            <p className='font-display text-3xl font-bold text-primary'>
-              {formatCurrency(currentSimulationComparison?.savings?.interest_saved)}
-            </p>
-            <p className='text-description'>
-              in interest over {currentSimulationComparison?.savings?.months_saved} fewer months
-            </p>
+      <div className='p-8 flex flex-col sticky top-0 h-[calc(100vh - var(--header-height))] overflow-y-auto'>
+        {createSimulation.isPending || updateSimulation.isPending ? (
+          <p>Loading...</p>
+        ) : currentSimulationComparison && !isModified ? (
+          <div className='flex flex-col gap-4'>
+            <div className='card flex-col items-start p-6 bg-primary/3'>
+              <p className='text-label text-primary/35 mb-1'>Projected Savings</p>
+              <p className='font-display text-3xl font-bold text-primary'>
+                {formatCurrency(currentSimulationComparison?.savings?.interest_saved)}
+              </p>
+              <p className='text-description'>
+                in interest over {currentSimulationComparison?.savings?.months_saved} fewer months
+              </p>
+            </div>
+
+            <div className='card flex-col gap-3 items-start p-6'>
+              <p className='text-label mb-2'>Strategy Preview</p>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Strategy</p>
+                <p className='text-sm'>{strategyDisplayNames[strategyType]}</p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Rollover Payments</p>
+                <p className='text-sm text-primary'>{cascade ? 'True' : 'False'}</p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Payoff in</p>
+                <p className='text-sm text-primary'>
+                  {currentSimulationComparison.simulation.months_until_payoff} months
+                </p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Total Interest</p>
+                <p className='text-sm'>{formatCurrency(currentSimulationComparison.simulation.total_interest_paid)}</p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Total Paid</p>
+                <p className='text-sm'>{formatCurrency(currentSimulationComparison.simulation.total_paid)}</p>
+              </div>
+              <div className='flex flex-col gap-2 w-full'>
+                <div className='flex justify-between items-center w-full'>
+                  <p className='text-description'>Interest Paid</p>
+                  <p className='text-description'>vs baseline</p>
+                </div>
+                <Progress value={100} className='*:bg-zinc-700/80 h-1.5' />
+                <Progress
+                  value={
+                    (currentSimulationComparison.simulation.total_interest_paid /
+                      currentSimulationComparison.baseline.total_interest_paid) *
+                    100
+                  }
+                  className='h-1.5'
+                />
+                <div className='flex justify-between items-center w-full'>
+                  <p className='text-description text-[10px]'>
+                    Baseline: {formatCurrency(currentSimulationComparison.baseline.total_interest_paid)}
+                  </p>
+                  <p className='text-description text-[10px]'>
+                    This sim: {formatCurrency(currentSimulationComparison.simulation.total_interest_paid)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className='card flex-col gap-3 items-start p-6'>
+              <p className='text-label mb-2'>Baseline</p>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Payoff in</p>
+                <p className='text-sm'>{currentSimulationComparison.baseline.months_until_payoff}</p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Total Interest</p>
+                <p className='text-sm text-red-400'>
+                  {formatCurrency(currentSimulationComparison.baseline.total_interest_paid)}
+                </p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Total Paid</p>
+                <p className='text-sm'>{formatCurrency(currentSimulationComparison.baseline.total_paid)}</p>
+              </div>
+            </div>
           </div>
+        ) : (
+          <p className='text-description'>Run the simulation to see the results...</p>
         )}
       </div>
     </div>
