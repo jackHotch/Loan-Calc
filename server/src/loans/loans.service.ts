@@ -4,6 +4,7 @@ import { UpdateLoanDto } from './dto/update-loan.dto';
 import { DatabaseService } from '../database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { LoanDb } from 'src/lib/types/loan.types';
+import Decimal from 'decimal.js';
 
 @Injectable()
 export class LoansService {
@@ -170,6 +171,53 @@ export class LoansService {
     }
 
     return loan ?? null;
+  }
+
+  async getBaselineSummary(userId: BigInt, loanIds: number[]) {
+    const totals = await this.db.query(
+      `SELECT
+      l.id AS loan_id,
+      SUM(ps.principal_paid) AS principal_paid,
+      SUM(ps.interest_paid) AS interest_paid,
+      SUM(ps.total_payment) AS total_paid,
+      MAX(ps.payment_date) AS payoff_date
+     FROM payment_schedules ps
+     JOIN loans l ON ps.loan_id = l.id
+     WHERE ps.loan_id = ANY($1)
+       AND ps.simulation_loan_id IS NULL
+       AND l.user_id = $2
+     GROUP BY l.id`,
+      [loanIds, userId],
+    );
+
+    const perLoan = totals.map((row) => ({
+      loan_id: row.loan_id,
+      payoff_date: row.payoff_date,
+      total_interest_paid: new Decimal(row.interest_paid)
+        .toDecimalPlaces(2)
+        .toNumber(),
+      total_paid: new Decimal(row.total_paid).toDecimalPlaces(2).toNumber(),
+    }));
+
+    const totalsRollup = perLoan.reduce(
+      (acc, loan) => ({
+        total_interest_paid: new Decimal(acc.total_interest_paid)
+          .plus(loan.total_interest_paid)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        total_paid: new Decimal(acc.total_paid)
+          .plus(loan.total_paid)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        last_payoff_date:
+          !acc.last_payoff_date || loan.payoff_date > acc.last_payoff_date
+            ? loan.payoff_date
+            : acc.last_payoff_date,
+      }),
+      { total_interest_paid: 0, total_paid: 0, last_payoff_date: null },
+    );
+
+    return { perLoan, totals: totalsRollup };
   }
 
   async update(userId: BigInt, loanId: BigInt, loan: UpdateLoanDto) {

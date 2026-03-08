@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { CreateSimulationDto, StrategyType } from './dto/create-simulation.dto';
-import { UpdateSimulationDto } from './dto/update-simulation.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { LoanDb } from 'src/lib/types/loan.types';
@@ -316,6 +315,95 @@ export class SimulationsService {
     return (
       normA.length === normB.length && normA.every((v, i) => v === normB[i])
     );
+  }
+
+  async getSimulationSummary(userId: BigInt, simulationId: BigInt) {
+    const simLoans = await this.db.query(
+      `SELECT loan_id FROM simulation_loans 
+      JOIN simulations s ON simulation_loans.simulation_id = s.id
+      WHERE simulation_loans.simulation_id = $1 AND s.user_id = $2`,
+      [simulationId, userId],
+    );
+    const loanIds = simLoans.map((r) => r.loan_id);
+
+    const actualTotals = await this.db.query(
+      `SELECT
+        l.id AS loan_id,
+        COALESCE(SUM(ps.principal_paid), 0) AS principal_paid,
+        COALESCE(SUM(ps.interest_paid), 0) AS interest_paid,
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_paid
+      FROM payment_schedules ps
+      JOIN loans l ON ps.loan_id = l.id
+      WHERE ps.loan_id = ANY($1)
+        AND ps.is_actual = true
+        AND l.user_id = $2
+      GROUP BY l.id`,
+      [loanIds, userId],
+    );
+
+    const simTotals = await this.db.query(
+      `SELECT
+        sl.loan_id,
+        sl.payoff_order,
+        COALESCE(SUM(ps.principal_paid), 0) AS principal_paid,
+        COALESCE(SUM(ps.interest_paid), 0) AS interest_paid,
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_paid,
+        MAX(ps.payment_date) AS payoff_date
+      FROM payment_schedules ps
+      JOIN simulation_loans sl ON ps.simulation_loan_id = sl.id
+      JOIN simulations s ON sl.simulation_id = s.id
+      WHERE sl.simulation_id = $1
+        AND s.user_id = $2
+      GROUP BY sl.loan_id, sl.payoff_order`,
+      [simulationId, userId],
+    );
+
+    const perLoan = simTotals.map((sim) => {
+      const actual = actualTotals.find((a) => a.loan_id === sim.loan_id);
+
+      const actualInterest = new Decimal(actual?.interest_paid ?? 0);
+      const actualPrincipal = new Decimal(actual?.principal_paid ?? 0);
+      const actualTotal = new Decimal(actual?.total_paid ?? 0);
+
+      const simInterest = new Decimal(sim.interest_paid);
+      const simPrincipal = new Decimal(sim.principal_paid);
+      const simTotal = new Decimal(sim.total_paid);
+
+      return {
+        loan_id: sim.loan_id,
+        payoff_order: sim.payoff_order,
+        payoff_date: sim.payoff_date,
+        total_interest_paid: actualInterest
+          .plus(simInterest)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        total_principal_paid: actualPrincipal
+          .plus(simPrincipal)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        total_paid: actualTotal.plus(simTotal).toDecimalPlaces(2).toNumber(),
+      };
+    });
+
+    const totals = perLoan.reduce(
+      (acc, loan) => ({
+        total_interest_paid: new Decimal(acc.total_interest_paid)
+          .plus(loan.total_interest_paid)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        total_paid: new Decimal(acc.total_paid)
+          .plus(loan.total_paid)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        last_payoff_date:
+          !acc.last_payoff_date || loan.payoff_date > acc.last_payoff_date
+            ? loan.payoff_date
+            : acc.last_payoff_date,
+      }),
+      { total_interest_paid: 0, total_paid: 0, last_payoff_date: null },
+    );
+
+    return { perLoan, totals };
   }
 
   remove(id: number) {

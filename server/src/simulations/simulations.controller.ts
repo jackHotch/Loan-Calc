@@ -46,6 +46,14 @@ export class SimulationsController {
     );
   }
 
+  @Get('/summary/:id')
+  summary(@User() userId: BigInt, @Param('id') simulationId: string) {
+    return this.simulationsService.getSimulationSummary(
+      userId,
+      BigInt(simulationId),
+    );
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.simulationsService.remove(+id);
