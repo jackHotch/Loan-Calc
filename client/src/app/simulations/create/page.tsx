@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { ArrowRight } from 'lucide-react'
-import { useCreateSimulation, useSimulation, useSimulationComparison } from '@/lib/api/simulations'
+import { useCreateSimulation, useSimulation, useSimulationComparison, useUpdateSimulation } from '@/lib/api/simulations'
 import { StrategyType } from '@/constants/schema'
 import { SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -20,6 +20,7 @@ function Create() {
   const pathname = usePathname()
   const { data: loans } = useLoans()
   const createSimulation = useCreateSimulation()
+  const updateSimulation = useUpdateSimulation()
   const searchParams = useSearchParams()
   const simulationId = searchParams.get('id')
   const { data: existingSimulation } = useSimulation(simulationId)
@@ -66,6 +67,17 @@ function Create() {
   async function handleRunSimulation() {
     let simulation: SimulationResult
     if (simulationId) {
+      simulation = await updateSimulation.mutateAsync({
+        id: simulationId,
+        data: {
+          name,
+          description,
+          strategy_type: strategyType,
+          extra_payment: extraPayment,
+          cascade,
+          loan_ids: Array.from(selectedLoans).map(Number),
+        },
+      })
     } else {
       simulation = await createSimulation.mutateAsync({
         name,
@@ -269,11 +281,7 @@ function Create() {
           </div>
         </div>
 
-        <Button
-          onClick={handleRunSimulation}
-          disabled={name && description && selected ? false : true}
-          className='w-fit px-8 py-5'
-        >
+        <Button onClick={handleRunSimulation} disabled={name && selected ? false : true} className='w-fit px-8 py-5'>
           <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
           <ArrowRight />
         </Button>
