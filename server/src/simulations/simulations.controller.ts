@@ -10,7 +10,6 @@ import {
 } from '@nestjs/common';
 import { SimulationsService } from './simulations.service';
 import { CreateSimulationDto } from './dto/create-simulation.dto';
-import { UpdateSimulationDto } from './dto/update-simulation.dto';
 import { User } from 'src/auth/user.decorator';
 import { ClerkAuthGuard } from 'src/auth/clerk-auth.guard';
 
@@ -30,16 +29,21 @@ export class SimulationsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.simulationsService.findOne(+id);
+  findOne(@User() userId: BigInt, @Param('id') id: string) {
+    return this.simulationsService.findOne(userId, BigInt(id));
   }
 
   @Patch(':id')
   update(
-    @Param('id') id: string,
-    @Body() updateSimulationDto: UpdateSimulationDto,
+    @User() userId: BigInt,
+    @Param('id') simulationId: string,
+    @Body() simulation: CreateSimulationDto,
   ) {
-    return this.simulationsService.update(+id, updateSimulationDto);
+    return this.simulationsService.update(
+      userId,
+      BigInt(simulationId),
+      simulation,
+    );
   }
 
   @Delete(':id')

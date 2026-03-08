@@ -25,11 +25,11 @@ export class SimulationsService {
     const calculatedSimulation = await this.runSimulation(
       loans,
       simulation.strategy_type,
-      simulation.extra_monthly_payment,
+      simulation.extra_payment,
       simulation.cascade,
     );
 
-    return this.saveSimulation(userId, simulation, calculatedSimulation);
+    return await this.saveSimulation(userId, simulation, calculatedSimulation);
   }
 
   async runSimulation(
@@ -90,7 +90,7 @@ export class SimulationsService {
         const paymentDate = new Date(loan.simulationStartdate);
         paymentDate.setMonth(paymentDate.getMonth() + monthCount);
 
-        let extraPayment: Decimal =
+        let extraPaymentApplied: Decimal =
           loan.extraPaymentTarget === true
             ? new Decimal(extraPaymentPool)
             : new Decimal(0);
@@ -117,7 +117,7 @@ export class SimulationsService {
 
         if (monthlyPrincipalPaid.gt(remainingPrincipal)) {
           monthlyPrincipalPaid = remainingPrincipal;
-          extraPayment = new Decimal(0);
+          extraPaymentApplied = new Decimal(0);
         }
 
         remainingPrincipal = loan.simulationBalance.minus(monthlyPrincipalPaid);
@@ -128,7 +128,7 @@ export class SimulationsService {
           payment_date: new Date(paymentDate),
           principal_paid: monthlyPrincipalPaid.toDecimalPlaces(2).toNumber(),
           interest_paid: monthlyInterestPaid.toDecimalPlaces(2).toNumber(),
-          extra_payment: extraPayment.toDecimalPlaces(2).toNumber(),
+          extra_payment: extraPaymentApplied.toDecimalPlaces(2).toNumber(),
           remaining_principal: remainingPrincipal.toDecimalPlaces(2).toNumber(),
         });
 
@@ -152,22 +152,26 @@ export class SimulationsService {
     userId: BigInt,
     simulation: CreateSimulationDto,
     calculatedSimulation,
+    createdSimulation?,
   ) {
-    const [createdSimulation]: any = await this.db.query(
-      `
-      INSERT INTO simulations (user_id, name, description, strategy_type, cascade, extra_payment)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-      `,
-      [
-        userId,
-        simulation.name,
-        simulation.description,
-        simulation.strategy_type,
-        simulation.cascade,
-        simulation.extra_monthly_payment,
-      ],
-    );
+    console.log(simulation);
+    if (!createdSimulation) {
+      [createdSimulation] = await this.db.query(
+        `
+        INSERT INTO simulations (user_id, name, description, strategy_type, cascade, extra_payment)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+        `,
+        [
+          userId,
+          simulation.name,
+          simulation.description,
+          simulation.strategy_type,
+          simulation.cascade,
+          simulation.extra_payment,
+        ],
+      );
+    }
 
     const values = simulation.loan_ids
       .map((_, i) => {
@@ -191,11 +195,13 @@ export class SimulationsService {
     );
 
     const createdSimulationPaymentSchedules: any = [];
+    // console.log(calculatedSimulation[0]);
 
     for (const loan of calculatedSimulation) {
       const simulationLoan = createdSimulationLoans.find(
         (l) => l.loan_id == loan.id,
       );
+
       createdSimulationPaymentSchedules.push(
         await this.paymentSchedules.saveSchedule(
           simulationLoan.id,
@@ -205,30 +211,111 @@ export class SimulationsService {
       );
     }
 
-    console.log(createdSimulationPaymentSchedules[0]);
-
-    return {
-      ...createdSimulation,
-      loans: createdSimulationLoans.map((loan) => ({
-        ...loan,
-        paymentSchedule:
-          createdSimulationPaymentSchedules.find(
-            (s) => s[0]?.simulation_loan_id === loan.id,
-          ) ?? [],
-      })),
-    };
+    return this.findOne(userId, createdSimulation.id);
   }
 
   findAll() {
     return `This action returns all simulations`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} simulation`;
+  async findOne(userId: BigInt, id: BigInt) {
+    const result = await this.db.query(
+      `
+      SELECT
+        s.*,
+        json_agg(
+          json_build_object(
+            'id', sl.id,
+            'loan_id', sl.loan_id,
+            'payoff_order', sl.payoff_order,
+            'payment_schedule', (
+              SELECT json_agg(ps.* ORDER BY ps.payment_number)
+              FROM payment_schedules ps
+              WHERE ps.simulation_loan_id = sl.id
+            )
+          )
+          ORDER BY sl.payoff_order
+        ) AS loans
+      FROM simulations s
+      JOIN simulation_loans sl ON sl.simulation_id = s.id
+      WHERE s.user_id = $1
+      AND s.id = $2
+      GROUP BY s.id;`,
+      [userId, id],
+    );
+
+    return result[0];
   }
 
-  update(id: number, updateSimulationDto: UpdateSimulationDto) {
-    return `This action updates a #${id} simulation`;
+  async update(
+    userId: BigInt,
+    simulationId: BigInt,
+    simulation: CreateSimulationDto,
+  ) {
+    const existing = await this.db.query(
+      `SELECT s.*, ARRAY_AGG(sl.loan_id) AS loan_ids 
+      FROM simulations s
+      JOIN simulation_loans sl ON sl.simulation_id = s.id
+      WHERE s.id = $1 AND s.user_id = $2
+      GROUP BY s.id`,
+      [simulationId, userId],
+    );
+    const current = existing[0];
+
+    const needsRecalculation =
+      current.strategy_type !== simulation.strategy_type ||
+      parseFloat(current.extra_payment) !== simulation.extra_payment ||
+      current.cascade !== simulation.cascade ||
+      !this.sameArrays(current.loan_ids, simulation.loan_ids);
+
+    await this.db.query(
+      `UPDATE simulations 
+      SET name = $1, description = $2, strategy_type = $3, extra_payment = $4, cascade = $5
+      WHERE id = $6 AND user_id = $7`,
+      [
+        simulation.name,
+        simulation.description,
+        simulation.strategy_type,
+        simulation.extra_payment,
+        simulation.cascade,
+        simulationId,
+        userId,
+      ],
+    );
+
+    if (needsRecalculation) {
+      await this.db.query(
+        `DELETE FROM simulation_loans WHERE simulation_id = $1`,
+        [simulationId],
+      );
+
+      let loans: LoanDb[] = [];
+
+      for (const loanId of simulation.loan_ids) {
+        loans.push(await this.loanService.findOne(userId, loanId));
+      }
+
+      const calculatedSimulation = await this.runSimulation(
+        loans,
+        simulation.strategy_type,
+        simulation.extra_payment,
+        simulation.cascade,
+      );
+
+      await this.saveSimulation(userId, simulation, calculatedSimulation, {
+        id: current.id,
+      });
+    }
+
+    return this.findOne(userId, simulationId);
+  }
+
+  sameArrays(a: number[] | BigInt[], b: number[] | BigInt[]) {
+    const normA = [...a].map(Number).sort();
+    const normB = [...b].map(Number).sort();
+    return (
+      normA.length === normB.length && normA.every((v, i) => v === normB[i])
+    );
   }
 
   remove(id: number) {

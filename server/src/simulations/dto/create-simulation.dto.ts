@@ -29,7 +29,7 @@ export class CreateSimulationDto {
 
   @IsNumber()
   @Min(0)
-  extra_monthly_payment: number;
+  extra_payment: number;
 
   @IsBoolean()
   cascade: boolean;
