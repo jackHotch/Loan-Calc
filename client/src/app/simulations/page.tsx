@@ -17,7 +17,7 @@ export default function Simulations() {
         </div>
 
         <div className='w-max'>
-          <Button onClick={() => router.push('/simulations/create')}>
+          <Button className='w-fit px-8 py-5' onClick={() => router.push('/simulations/create')}>
             <Plus />
             <span className='hidden md:inline text-xs tracking-widest'>NEW SIMULATION</span>
           </Button>

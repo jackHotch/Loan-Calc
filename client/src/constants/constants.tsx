@@ -38,3 +38,9 @@ export const strategyDisplayNames: Record<StrategyType, string> = {
   [StrategyType.AVALANCHE_INTEREST_FOCUSED]: 'Avalanche (Interest)',
   [StrategyType.SNOWBALL_INTEREST_FOCUSED]: 'Snowball (Interest)',
 }
+
+export const breadcrumbs = {
+  simulations: 'Simulations',
+  create: 'Create',
+  loans: 'Loans',
+}

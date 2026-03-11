@@ -9,8 +9,8 @@ import { payoffStrategies, strategyDisplayNames } from '@/constants/constants'
 import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { ArrowRight } from 'lucide-react'
 import { useCreateSimulation, useSimulation, useSimulationComparison, useUpdateSimulation } from '@/lib/api/simulations'
+import { ArrowRight, Save } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
 import { SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -129,6 +129,10 @@ function Create() {
     <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px) items-start'>
       <div className='p-8 flex flex-col border-r gap-12' style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
         <header className='flex flex-col gap-4'>
+          {/* <Button variant='link' className='text-primary w-fit p-0'>
+            <ArrowLeft />
+            Back
+          </Button> */}
           <p className='text-label'>New Simulation</p>
           <h1 className='font-display text-5xl font-light'>
             Build your
@@ -298,10 +302,23 @@ function Create() {
           </div>
         </div>
 
-        <Button onClick={handleRunSimulation} disabled={name && selected ? false : true} className='w-fit px-8 py-5'>
-          <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
-          <ArrowRight />
-        </Button>
+        <div className='flex gap-2 '>
+          <Button
+            onClick={handleRunSimulation}
+            disabled={name && selected.length > 0 ? false : true}
+            className='w-fit px-8 py-5'
+            variant={simulationId ? 'outline' : 'default'}
+          >
+            <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
+            <ArrowRight />
+          </Button>
+          {simulationId && (
+            <Button className='w-fit px-8 py-5' onClick={() => router.push('/simulations')}>
+              <span className='hidden md:inline text-xs tracking-widest uppercase'>Save Simulation</span>
+              <Save />
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className='p-8 flex flex-col sticky top-0 h-[calc(100vh - var(--header-height))] overflow-y-auto'>
