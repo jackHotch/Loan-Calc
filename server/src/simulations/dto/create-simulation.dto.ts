@@ -16,6 +16,11 @@ export enum StrategyType {
   SNOWBALL_INTEREST_FOCUSED = 'Snowball Interest Focused',
 }
 
+export class ExtraPaymentDto {
+  amount: number;
+  start_date: Date;
+}
+
 export class CreateSimulationDto {
   @IsString()
   name: string;
@@ -27,9 +32,8 @@ export class CreateSimulationDto {
   @IsEnum(StrategyType)
   strategy_type: StrategyType;
 
-  @IsNumber()
-  @Min(0)
-  extra_payment: number;
+  @IsArray()
+  extra_payments: ExtraPaymentDto[];
 
   @IsBoolean()
   cascade: boolean;

@@ -23,11 +23,6 @@ export class SimulationsController {
     return this.simulationsService.create(userId, simulation);
   }
 
-  @Get()
-  findAll() {
-    return this.simulationsService.findAll();
-  }
-
   @Get('/comparison/:id')
   comparison(@User() userId: BigInt, @Param('id') simulationId: string) {
     return this.simulationsService.getSimulationComparison(
