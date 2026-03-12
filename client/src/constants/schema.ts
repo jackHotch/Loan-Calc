@@ -56,6 +56,13 @@ export const StrategyType = {
   SNOWBALL_INTEREST_FOCUSED: 'Snowball - Interest Focused',
 } as const
 
+export const extraPaymentSchema = z.object({
+  id: z.number().optional(),
+  simulation_id: z.number().optional(),
+  amount: z.number().min(0),
+  start_date: z.date(),
+})
+
 export const createSimulationSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
@@ -65,7 +72,7 @@ export const createSimulationSchema = z.object({
     StrategyType.AVALANCHE_INTEREST_FOCUSED,
     StrategyType.SNOWBALL_INTEREST_FOCUSED,
   ]),
-  extra_payment: z.number().min(0),
+  extra_payments: z.array(extraPaymentSchema).default([]),
   cascade: z.boolean(),
   loan_ids: z.array(z.number()).nonempty(),
 })
@@ -104,7 +111,7 @@ export const simulationSchema = z.object({
   ]),
   created_at: z.string(),
   cascade: z.boolean(),
-  extra_payment: z.string(),
+  extra_payments: z.array(extraPaymentSchema),
   loans: z.array(simulationLoanSchema),
 })
 

@@ -14,3 +14,8 @@ export type SimulationResult = {
     months_saved: number
   }
 }
+
+export interface ExtraPayment {
+  amount: number
+  start_date: Date
+}

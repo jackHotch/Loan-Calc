@@ -1,12 +1,12 @@
 'use client'
 
-import * as React from 'react'
+import { useState, CSSProperties } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Field } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { CalendarIcon } from 'lucide-react'
-import { formatInputDate } from '@/lib/utils'
+import { cn, formatInputDate } from '@/lib/utils'
 
 function isValidDate(date: Date | undefined) {
   if (!date) {
@@ -18,17 +18,21 @@ function isValidDate(date: Date | undefined) {
 export function DatePicker({
   value: externalDate,
   onChange,
+  className,
 }: {
   value?: Date
   onChange?: (date: Date | undefined) => void
+  className?: CSSProperties
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [date, setDate] = React.useState<Date | undefined>(externalDate)
-  const [month, setMonth] = React.useState<Date | undefined>(externalDate)
-  const [value, setValue] = React.useState(externalDate ? formatInputDate(externalDate) : '')
+  console.log('datepicker', externalDate)
+  console.log('hhsdhfh', typeof externalDate)
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState<Date | undefined>(externalDate)
+  const [month, setMonth] = useState<Date | undefined>(externalDate)
+  const [value, setValue] = useState(externalDate ? formatInputDate(externalDate) : '')
 
   return (
-    <Field className='mx-auto'>
+    <Field className={cn('mx-auto', className)}>
       <InputGroup>
         <InputGroupInput
           id='date-required'

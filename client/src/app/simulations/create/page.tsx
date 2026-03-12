@@ -12,9 +12,10 @@ import { Button } from '@/components/ui/button'
 import { useCreateSimulation, useSimulation, useSimulationComparison, useUpdateSimulation } from '@/lib/api/simulations'
 import { ArrowRight, Save } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
-import { SimulationResult } from '@/constants/types'
+import { ExtraPayment, SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Progress } from '@/components/ui/progress'
+import { DatePicker } from '@/components/loan-table/date-picker'
 
 function Create() {
   const router = useRouter()
@@ -32,7 +33,7 @@ function Create() {
   const [description, setDescription] = useState<string>('')
   const [selectedLoans, setSelectedLoans] = useState<Set<bigint>>(new Set(loans?.map((l) => l.id)))
   const [strategyType, setStrategyType] = useState<StrategyType>(StrategyType.AVALANCHE)
-  const [extraPayment, setExtraPayment] = useState<number>(100)
+  const [extraPayments, setExtraPayments] = useState<ExtraPayment[]>([{ amount: 100, start_date: new Date() }])
   const [cascade, setCascade] = useState<boolean>(false)
 
   useEffect(() => {
@@ -40,7 +41,12 @@ function Create() {
       setName(existingSimulation.name)
       setDescription(existingSimulation.description)
       setStrategyType(existingSimulation.strategy_type)
-      setExtraPayment(Number(existingSimulation.extra_payment))
+      setExtraPayments(
+        existingSimulation.extra_payments.map((ep) => ({
+          ...ep,
+          start_date: new Date(ep.start_date),
+        })),
+      )
       setCascade(existingSimulation.cascade)
       setSelectedLoans(new Set(existingSimulation.loans.map((l) => BigInt(l.loan_id))))
       setCurrentSimulationComparison(simulationComparison)
@@ -51,8 +57,8 @@ function Create() {
     ? name !== existingSimulation.name ||
       description !== existingSimulation.description ||
       strategyType !== existingSimulation.strategy_type ||
-      extraPayment !== Number(existingSimulation.extra_payment) ||
       cascade !== existingSimulation.cascade ||
+      !sameExtraPayments(extraPayments, existingSimulation.extra_payments) ||
       !sameArrays(
         Array.from(selectedLoans).map(Number),
         existingSimulation.loans.map((l) => l.loan_id),
@@ -61,6 +67,13 @@ function Create() {
 
   function sameArrays(a: number[], b: number[]) {
     return a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i])
+  }
+
+  function sameExtraPayments(a: ExtraPayment[], b: ExtraPayment[]) {
+    if (a.length !== b.length) return false
+    return a.every(
+      (ep, i) => ep.amount === b[i].amount && new Date(ep.start_date).getTime() === new Date(b[i].start_date).getTime(),
+    )
   }
 
   function setSimulationId(id: number) {
@@ -77,8 +90,36 @@ function Create() {
     })
   }
 
-  function addToExtraPayment(num: number) {
-    setExtraPayment((prev) => prev + num)
+  function addToExtraPayment(id: number, extraAmount: number) {
+    setExtraPayments((prev) => {
+      return prev.map((ep, key) => {
+        if (key == id) {
+          return { ...ep, amount: ep.amount + extraAmount }
+        } else {
+          return ep
+        }
+      })
+    })
+  }
+
+  function addExtraPayment() {
+    setExtraPayments((prev) => [...prev, { amount: 100, start_date: new Date() }])
+  }
+
+  function getTotalExtraPayment() {
+    return extraPayments.reduce((acc, cur) => acc + cur.amount, 0)
+  }
+
+  function handleStartDateChange(id: number, date: Date) {
+    setExtraPayments((prev) => {
+      return prev.map((ep, key) => {
+        if (key == id) {
+          return { ...ep, start_date: date }
+        } else {
+          return ep
+        }
+      })
+    })
   }
 
   async function handleRunSimulation() {
@@ -90,7 +131,7 @@ function Create() {
           name,
           description,
           strategy_type: strategyType,
-          extra_payment: extraPayment,
+          extra_payments: extraPayments,
           cascade,
           loan_ids: Array.from(selectedLoans).map(Number),
         },
@@ -100,7 +141,7 @@ function Create() {
         name,
         description,
         strategy_type: strategyType,
-        extra_payment: extraPayment,
+        extra_payments: extraPayments,
         cascade,
         loan_ids: Array.from(selectedLoans).map(Number),
       })
@@ -129,10 +170,6 @@ function Create() {
     <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px) items-start'>
       <div className='p-8 flex flex-col border-r gap-12' style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
         <header className='flex flex-col gap-4'>
-          {/* <Button variant='link' className='text-primary w-fit p-0'>
-            <ArrowLeft />
-            Back
-          </Button> */}
           <p className='text-label'>New Simulation</p>
           <h1 className='font-display text-5xl font-light'>
             Build your
@@ -238,29 +275,6 @@ function Create() {
           <h2 className='font-display text-2xl mb-6'>Extra monthly payment</h2>
 
           <div className='flex flex-col gap-2'>
-            <div className='card justify-between items-center'>
-              <div className='flex flex-col'>
-                <p className='text-sm text-zinc-400'>Additional amount on top of minimum</p>
-                <p className='text-description'>Total monthly: {formatCurrency(totalMinPayment + extraPayment)}</p>
-              </div>
-
-              <div className='flex gap-6 items-center'>
-                <button
-                  onClick={() => addToExtraPayment(-25)}
-                  className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
-                >
-                  -
-                </button>
-                <div className='text-primary'>{formatCurrency(extraPayment)}</div>
-                <button
-                  onClick={() => addToExtraPayment(25)}
-                  className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
             <div
               onClick={() => setCascade((prev) => !prev)}
               className={`${cascade ? 'border-primary/35 bg-primary/2' : 'hover:border-zinc-700'} card cursor-pointer gap-4 justify-start`}
@@ -274,6 +288,39 @@ function Create() {
                 </p>
               </div>
             </div>
+
+            {extraPayments.map((ep, key) => {
+              return (
+                <div key={key} className='card justify-between items-center'>
+                  <div className='flex flex-col'>
+                    <p className='text-sm text-zinc-400'>Additional amount on top of minimum</p>
+                    <p className='text-description'>Total monthly: {formatCurrency(totalMinPayment + ep.amount)}</p>
+                  </div>
+
+                  <div className='flex gap-6 items-center'>
+                    <button
+                      onClick={() => addToExtraPayment(key, -25)}
+                      className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
+                    >
+                      -
+                    </button>
+                    <div className='text-primary'>{formatCurrency(ep.amount)}</div>
+                    <button
+                      onClick={() => addToExtraPayment(key, 25)}
+                      className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
+                    >
+                      +
+                    </button>
+
+                    <DatePicker value={ep.start_date} onChange={(val) => handleStartDateChange(key, val)} />
+                  </div>
+                </div>
+              )
+            })}
+
+            <Button variant='outline' className='py-5' onClick={addExtraPayment}>
+              Add an extra payment
+            </Button>
 
             {selected?.length > 0 && (
               <div className='mt-4 flex flex-col'>
