@@ -31,6 +31,11 @@ export class SimulationsController {
     );
   }
 
+  @Get()
+  findAll(@User() userId: BigInt) {
+    return this.simulationsService.findAll(userId);
+  }
+
   @Get(':id')
   findOne(@User() userId: BigInt, @Param('id') id: string) {
     return this.simulationsService.findOne(userId, BigInt(id));
