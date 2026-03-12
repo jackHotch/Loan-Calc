@@ -290,6 +290,47 @@ export class SimulationsService {
     return result[0];
   }
 
+  async findAll(userId: BigInt) {
+    return await this.db.query(
+      `SELECT
+        s.*,
+        (
+          SELECT json_agg(ep.* ORDER BY ep.start_date)
+          FROM simulation_extra_payments ep
+          WHERE ep.simulation_id = s.id
+        ) AS extra_payments,
+        json_agg(
+          json_build_object(
+            'id', sl.id,
+            'loan_id', sl.loan_id,
+            'payoff_order', sl.payoff_order,
+            'payment_schedule', (
+              SELECT json_agg(
+                json_build_object(
+                  'id', ps.id,
+                  'payment_number', ps.payment_number,
+                  'payment_date', ps.payment_date,
+                  'principal_paid', ps.principal_paid,
+                  'interest_paid', ps.interest_paid,
+                  'extra_payment', ps.extra_payment,
+                  'remaining_principal', ps.remaining_principal
+                )
+                ORDER BY ps.payment_number
+              )
+              FROM payment_schedules ps
+              WHERE ps.simulation_loan_id = sl.id
+            )
+          )
+          ORDER BY sl.payoff_order
+        ) AS loans
+      FROM simulations s
+      JOIN simulation_loans sl ON sl.simulation_id = s.id
+      WHERE s.user_id = $1
+      GROUP BY s.id`,
+      [userId],
+    );
+  }
+
   async update(
     userId: BigInt,
     simulationId: BigInt,
@@ -318,7 +359,7 @@ export class SimulationsService {
       !this.sameExtraPayments(
         current.extra_payments,
         simulation.extra_payments,
-      ); // changed
+      );
 
     await this.db.query(
       `UPDATE simulations
@@ -331,7 +372,6 @@ export class SimulationsService {
         simulation.cascade,
         simulationId,
         userId,
-        // removed: extra_payment
       ],
     );
 
@@ -349,7 +389,7 @@ export class SimulationsService {
       const calculatedSimulation = await this.runSimulation(
         loans,
         simulation.strategy_type,
-        simulation.extra_payments, // changed
+        simulation.extra_payments,
         simulation.cascade,
       );
 
@@ -357,7 +397,6 @@ export class SimulationsService {
         id: current.id,
       });
     } else {
-      // even if no recalculation, still sync extra payments
       await this.db.query(
         `DELETE FROM simulation_extra_payments WHERE simulation_id = $1`,
         [simulationId],
@@ -387,7 +426,6 @@ export class SimulationsService {
     return this.getSimulationComparison(userId, current.id);
   }
 
-  // changed: replaces extra_payment scalar comparison
   sameExtraPayments(
     a: { amount: number; start_date: Date }[],
     b: { amount: number; start_date: Date }[],
@@ -413,8 +451,6 @@ export class SimulationsService {
       normA.length === normB.length && normA.every((v, i) => v === normB[i])
     );
   }
-
-  // ... rest of service unchanged (getSimulationSummary, getSimulationComparison, etc.)
 
   async getSimulationSummary(userId: BigInt, simulationId: BigInt) {
     const simLoans = await this.db.query(
