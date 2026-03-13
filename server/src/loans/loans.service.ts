@@ -174,30 +174,78 @@ export class LoansService {
   }
 
   async getBaselineSummary(userId: BigInt, loanIds: number[]) {
-    const totals = await this.db.query(
+    const loanDetails = await this.db.query(
       `SELECT
-      l.id AS loan_id,
-      SUM(ps.principal_paid) AS principal_paid,
-      SUM(ps.interest_paid) AS interest_paid,
-      SUM(ps.total_payment) AS total_paid,
-      MAX(ps.payment_date) AS payoff_date
-     FROM payment_schedules ps
-     JOIN loans l ON ps.loan_id = l.id
-     WHERE ps.loan_id = ANY($1)
-       AND ps.simulation_loan_id IS NULL
-       AND l.user_id = $2
-     GROUP BY l.id`,
+        l.id AS loan_id,
+        l.name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment
+      FROM loans l
+      WHERE l.id = ANY($1)
+        AND l.user_id = $2`,
       [loanIds, userId],
     );
 
-    const perLoan = totals.map((row) => ({
-      loan_id: row.loan_id,
-      payoff_date: row.payoff_date,
-      total_interest_paid: new Decimal(row.interest_paid)
-        .toDecimalPlaces(2)
-        .toNumber(),
-      total_paid: new Decimal(row.total_paid).toDecimalPlaces(2).toNumber(),
-    }));
+    const loanDetailsMap = Object.fromEntries(
+      loanDetails.map((r) => [
+        r.loan_id,
+        {
+          name: r.name,
+          lender: r.lender,
+          starting_principal: r.starting_principal,
+          interest_rate: r.interest_rate,
+          minimum_payment: r.minimum_payment,
+        },
+      ]),
+    );
+
+    const totals = await this.db.query(
+      `SELECT
+        l.id AS loan_id,
+        SUM(ps.principal_paid) AS principal_paid,
+        SUM(ps.interest_paid) AS interest_paid,
+        SUM(ps.total_payment) AS total_paid,
+        COUNT(*) AS payment_count,
+        MAX(ps.payment_date) AS payoff_date
+      FROM payment_schedules ps
+      JOIN loans l ON ps.loan_id = l.id
+      WHERE ps.loan_id = ANY($1)
+        AND ps.simulation_loan_id IS NULL
+        AND l.user_id = $2
+      GROUP BY l.id`,
+      [loanIds, userId],
+    );
+
+    const now = new Date();
+
+    const perLoan = totals.map((row) => {
+      const details = loanDetailsMap[row.loan_id];
+      const payoffDate = row.payoff_date ? new Date(row.payoff_date) : null;
+      const monthsTilPayoff = payoffDate
+        ? (payoffDate.getFullYear() - now.getFullYear()) * 12 +
+          (payoffDate.getMonth() - now.getMonth())
+        : null;
+
+      return {
+        loan_id: row.loan_id,
+        name: details?.name ?? null,
+        lender: details?.lender ?? null,
+        starting_principal: details?.starting_principal ?? null,
+        interest_rate: details?.interest_rate ?? null,
+        minimum_payment: details?.minimum_payment ?? null,
+        payoff_date: row.payoff_date,
+        months_til_payoff: monthsTilPayoff,
+        total_interest_paid: new Decimal(row.interest_paid)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        total_principal_paid: new Decimal(row.principal_paid)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        total_paid: new Decimal(row.total_paid).toDecimalPlaces(2).toNumber(),
+      };
+    });
 
     const totalsRollup = perLoan.reduce(
       (acc, loan) => ({

@@ -454,19 +454,49 @@ export class SimulationsService {
 
   async getSimulationSummary(userId: BigInt, simulationId: BigInt) {
     const simLoans = await this.db.query(
-      `SELECT loan_id FROM simulation_loans 
+      `SELECT 
+        simulation_loans.loan_id,
+        l.name AS loan_name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment
+      FROM simulation_loans 
       JOIN simulations s ON simulation_loans.simulation_id = s.id
+      JOIN loans l ON simulation_loans.loan_id = l.id
       WHERE simulation_loans.simulation_id = $1 AND s.user_id = $2`,
       [simulationId, userId],
     );
+
+    const simulation = await this.db.query(
+      `SELECT id, name, description, strategy_type, created_at, cascade
+      FROM simulations
+      WHERE id = $1 AND user_id = $2`,
+      [simulationId, userId],
+    );
+
     const loanIds = simLoans.map((r) => r.loan_id);
+    const loanDetails = Object.fromEntries(
+      simLoans.map((r) => [
+        r.loan_id,
+        {
+          name: r.loan_name,
+          lender: r.lender,
+          starting_principal: r.starting_principal,
+          interest_rate: r.interest_rate,
+          minimum_payment: r.minimum_payment,
+        },
+      ]),
+    );
 
     const actualTotals = await this.db.query(
       `SELECT
         l.id AS loan_id,
         COALESCE(SUM(ps.principal_paid), 0) AS principal_paid,
         COALESCE(SUM(ps.interest_paid), 0) AS interest_paid,
-        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_paid
+        COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_paid,
+        COUNT(*) AS payment_count,
+        MAX(ps.payment_date) AS payoff_date
       FROM payment_schedules ps
       JOIN loans l ON ps.loan_id = l.id
       WHERE ps.loan_id = ANY($1)
@@ -483,6 +513,7 @@ export class SimulationsService {
         COALESCE(SUM(ps.principal_paid), 0) AS principal_paid,
         COALESCE(SUM(ps.interest_paid), 0) AS interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_paid,
+        COUNT(*) AS payment_count,
         MAX(ps.payment_date) AS payoff_date
       FROM payment_schedules ps
       JOIN simulation_loans sl ON ps.simulation_loan_id = sl.id
@@ -493,21 +524,85 @@ export class SimulationsService {
       [simulationId, userId],
     );
 
+    // Baseline (actual-only) totals per loan — payment count and interest
+    // if there were no simulation, to compare against for savings
+    const baselineTotals = await this.db.query(
+      `SELECT
+        l.id AS loan_id,
+        COALESCE(SUM(ps.interest_paid), 0) AS interest_paid,
+        COUNT(*) AS payment_count,
+        MAX(ps.payment_date) AS payoff_date
+      FROM payment_schedules ps
+      JOIN loans l ON ps.loan_id = l.id
+      WHERE ps.loan_id = ANY($1)
+        AND ps.is_actual = false
+        AND l.user_id = $2
+      GROUP BY l.id`,
+      [loanIds, userId],
+    );
+
+    const now = new Date();
+
     const perLoan = simTotals.map((sim) => {
       const actual = actualTotals.find((a) => a.loan_id === sim.loan_id);
+      const baseline = baselineTotals.find((b) => b.loan_id === sim.loan_id);
+      const details = loanDetails[sim.loan_id];
 
       const actualInterest = new Decimal(actual?.interest_paid ?? 0);
       const actualPrincipal = new Decimal(actual?.principal_paid ?? 0);
       const actualTotal = new Decimal(actual?.total_paid ?? 0);
+      const actualPaymentCount = Number(actual?.payment_count ?? 0);
 
       const simInterest = new Decimal(sim.interest_paid);
       const simPrincipal = new Decimal(sim.principal_paid);
       const simTotal = new Decimal(sim.total_paid);
+      const simPaymentCount = Number(sim.payment_count ?? 0);
+
+      const baselineInterest = new Decimal(baseline?.interest_paid ?? 0);
+      const baselinePaymentCount = Number(baseline?.payment_count ?? 0);
+      const baselinePayoffDate = baseline?.payoff_date ?? null;
+
+      const combinedSimPaymentCount = actualPaymentCount + simPaymentCount;
+      const combinedBaselinePaymentCount =
+        actualPaymentCount + baselinePaymentCount;
+
+      const simPayoffDate = sim.payoff_date ? new Date(sim.payoff_date) : null;
+      const baselinePayoffDateObj = baselinePayoffDate
+        ? new Date(baselinePayoffDate)
+        : null;
+
+      const monthsTilPayoff = simPayoffDate
+        ? (simPayoffDate.getFullYear() - now.getFullYear()) * 12 +
+          (simPayoffDate.getMonth() - now.getMonth())
+        : null;
+
+      const monthsSaved =
+        baselinePayoffDateObj && simPayoffDate
+          ? (baselinePayoffDateObj.getFullYear() -
+              simPayoffDate.getFullYear()) *
+              12 +
+            (baselinePayoffDateObj.getMonth() - simPayoffDate.getMonth())
+          : combinedBaselinePaymentCount - combinedSimPaymentCount;
+
+      const totalSimInterest = actualInterest.plus(simInterest);
+      const totalBaselineInterest = actualInterest.plus(baselineInterest);
+      const interestSaved = totalBaselineInterest
+        .minus(totalSimInterest)
+        .toDecimalPlaces(2)
+        .toNumber();
 
       return {
         loan_id: sim.loan_id,
+        name: details?.name ?? null,
+        lender: details?.lender ?? null,
+        starting_principal: details?.starting_principal ?? null,
+        interest_rate: details?.interest_rate ?? null,
+        minimum_payment: details?.minimum_payment ?? null,
         payoff_order: sim.payoff_order,
         payoff_date: sim.payoff_date,
+        months_til_payoff: monthsTilPayoff,
+        months_saved: monthsSaved,
+        interest_saved: interestSaved,
         total_interest_paid: actualInterest
           .plus(simInterest)
           .toDecimalPlaces(2)
@@ -538,7 +633,26 @@ export class SimulationsService {
       { total_interest_paid: 0, total_paid: 0, payoff_date: null },
     );
 
-    return { perLoan, totals };
+    const savings = {
+      interest_saved: perLoan
+        .reduce(
+          (acc, loan) => new Decimal(acc).plus(loan.interest_saved),
+          new Decimal(0),
+        )
+        .toDecimalPlaces(2)
+        .toNumber(),
+      months_saved:
+        perLoan.length > 0
+          ? Math.max(...perLoan.map((l) => l.months_saved ?? 0))
+          : 0,
+    };
+
+    return {
+      simulation: simulation[0] ?? null,
+      savings,
+      totals,
+      perLoan,
+    };
   }
 
   async getSimulationComparison(userId: BigInt, simulationId: BigInt) {
