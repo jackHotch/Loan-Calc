@@ -46,6 +46,18 @@ export const useSimulation = (id) => {
   })
 }
 
+export const useAllSimulations = () => {
+  const axios = useAxios()
+
+  return useQuery<Simulation[], ApiError>({
+    queryKey: ['simulations'],
+    queryFn: async () => {
+      const response = await axios.get<Simulation[]>(`/simulations`)
+      return response.data
+    },
+  })
+}
+
 export const useSimulationComparison = (id) => {
   const axios = useAxios()
 
