@@ -98,7 +98,7 @@ export const simulationLoanSchema = z.object({
   payment_schedule: z.array(paymentScheduleSchema),
 })
 
-export const simulationSchema = z.object({
+export const SimulationSchema = z.object({
   id: z.string(),
   user_id: z.string(),
   name: z.string(),
@@ -115,11 +115,50 @@ export const simulationSchema = z.object({
   loans: z.array(simulationLoanSchema),
 })
 
+export const SavingsSchema = z.object({
+  interest_saved: z.number(),
+  months_saved: z.number(),
+})
+
+export const TotalsSchema = z.object({
+  total_interest_paid: z.number(),
+  total_paid: z.number(),
+  payoff_date: z.string().nullable(),
+})
+
+export const PerLoanSchema = z.object({
+  loan_id: z.string(),
+  name: z.string().nullable(),
+  lender: z.string().nullable(),
+  starting_principal: z.string(),
+  interest_rate: z.string(),
+  minimum_payment: z.string(),
+  payoff_order: z.number().int().nullable(),
+  payoff_date: z.string().nullable(),
+  months_til_payoff: z.number().int().nullable(),
+  months_saved: z.number().int(),
+  interest_saved: z.number(),
+  total_interest_paid: z.number(),
+  total_principal_paid: z.number(),
+  total_paid: z.number(),
+})
+
+export const SimulationSummarySchema = z.object({
+  simulation: SimulationSchema,
+  savings: SavingsSchema,
+  totals: TotalsSchema,
+  perLoan: z.array(PerLoanSchema),
+})
+
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
 export type CreateSimulationInput = z.infer<typeof createSimulationSchema>
 export type StrategyType = (typeof StrategyType)[keyof typeof StrategyType]
-export type Simulation = z.infer<typeof simulationSchema>
+export type Simulation = z.infer<typeof SimulationSchema>
 export type SimulationLoan = z.infer<typeof simulationLoanSchema>
 export type PaymentSchedule = z.infer<typeof paymentScheduleSchema>
+export type Savings = z.infer<typeof SavingsSchema>
+export type Totals = z.infer<typeof TotalsSchema>
+export type PerLoan = z.infer<typeof PerLoanSchema>
+export type SimulationSummary = z.infer<typeof SimulationSummarySchema>

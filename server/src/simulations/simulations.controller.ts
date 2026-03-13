@@ -36,6 +36,11 @@ export class SimulationsController {
     return this.simulationsService.findAll(userId);
   }
 
+  @Get('/summary')
+  allSummaries(@User() userId: BigInt) {
+    return this.simulationsService.getAllSimulationsSummary(userId);
+  }
+
   @Get(':id')
   findOne(@User() userId: BigInt, @Param('id') id: string) {
     return this.simulationsService.findOne(userId, BigInt(id));

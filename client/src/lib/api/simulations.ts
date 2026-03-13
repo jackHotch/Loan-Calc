@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAxios } from './useAxios'
 import { ApiError } from './axios'
-import { CreateSimulationInput, Simulation } from '@/constants/schema'
+import { CreateSimulationInput, Simulation, SimulationSummary } from '@/constants/schema'
 import { SimulationResult } from '@/constants/types'
 
 export const useCreateSimulation = () => {
@@ -53,6 +53,18 @@ export const useAllSimulations = () => {
     queryKey: ['simulations'],
     queryFn: async () => {
       const response = await axios.get<Simulation[]>(`/simulations`)
+      return response.data
+    },
+  })
+}
+
+export const useAllSimulationSummaries = () => {
+  const axios = useAxios()
+
+  return useQuery<SimulationSummary[], ApiError>({
+    queryKey: ['simulations', 'summary'],
+    queryFn: async () => {
+      const response = await axios.get<SimulationSummary[]>(`/simulations/summary`)
       return response.data
     },
   })
