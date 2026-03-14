@@ -78,7 +78,7 @@ export class SimulationsController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.simulationsService.remove(+id);
+  remove(@User() userId: BigInt, @Param('id') id: string) {
+    return this.simulationsService.remove(userId, BigInt(id));
   }
 }

@@ -4,7 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { payoffStrategies, strategyColors } from '@/constants/constants'
 import { StrategyType } from '@/constants/schema'
-import { useActiveSimulation, useAllSimulationSummaries, useSetActiveSimulation } from '@/lib/api/simulations'
+import {
+  useActiveSimulation,
+  useAllSimulationSummaries,
+  useDeleteSimulation,
+  useSetActiveSimulation,
+} from '@/lib/api/simulations'
 import { cn, formatCurrency } from '@/lib/utils'
 import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -22,6 +27,7 @@ export default function Simulations() {
   ]
   const { data: activeSimulation } = useActiveSimulation()
   const setActiveSimulation = useSetActiveSimulation()
+  const deleteSimulation = useDeleteSimulation()
 
   const [filter, setFilter] = useState('All')
   const filteredSimulations =
@@ -128,6 +134,7 @@ export default function Simulations() {
                     </Button>
                     <Button
                       variant='outline'
+                      onClick={() => deleteSimulation.mutateAsync(sim.simulation.id)}
                       className='uppercase text-xs hover:text-red-500/60 hover:border-red-500/60'
                     >
                       Delete

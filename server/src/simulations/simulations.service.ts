@@ -987,7 +987,16 @@ export class SimulationsService {
     return result[0];
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} simulation`;
+  async remove(userId: BigInt, simulationId: BigInt) {
+    const result = await this.db.query(
+      `DELETE FROM simulations
+      WHERE id = $1
+      AND user_id = $2
+      RETURNING *;
+      `,
+      [simulationId, userId],
+    );
+
+    return result[0];
   }
 }

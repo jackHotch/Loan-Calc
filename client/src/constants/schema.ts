@@ -163,6 +163,16 @@ export const ActiveSimulationSchema = z.object({
   active_simulation_id: z.string().nullable(),
 })
 
+export const DeleteSimulationSchema = z.object({
+  id: z.string(),
+  user_id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  strategy_type: z.string(),
+  created_at: z.string(),
+  cascade: z.string(),
+})
+
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
@@ -176,3 +186,4 @@ export type Totals = z.infer<typeof TotalsSchema>
 export type PerLoan = z.infer<typeof PerLoanSchema>
 export type SimulationSummary = z.infer<typeof SimulationSummarySchema>
 export type ActiveSimulation = z.infer<typeof ActiveSimulationSchema>
+export type DeleteSimulation = z.infer<typeof DeleteSimulationSchema>

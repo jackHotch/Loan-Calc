@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAxios } from './useAxios'
 import { ApiError } from './axios'
-import { ActiveSimulation, CreateSimulationInput, Simulation, SimulationSummary } from '@/constants/schema'
+import {
+  ActiveSimulation,
+  CreateSimulationInput,
+  DeleteSimulation,
+  Simulation,
+  SimulationSummary,
+} from '@/constants/schema'
 import { SetActiveSimulationResult, SimulationResult } from '@/constants/types'
 
 export const useCreateSimulation = () => {
@@ -106,6 +112,23 @@ export const useSetActiveSimulation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['simulations', 'active'] })
+    },
+  })
+}
+
+export const useDeleteSimulation = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<DeleteSimulation, ApiError, string>({
+    mutationFn: async (id) => {
+      const response = await axios.delete<DeleteSimulation>(`/simulations/${id}`)
+      return response.data
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['simulations'] })
+      queryClient.removeQueries({ queryKey: ['simulations', id] })
+      queryClient.removeQueries({ queryKey: ['simulations', 'comparison', id] })
     },
   })
 }
