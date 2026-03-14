@@ -9,13 +9,21 @@ import { payoffStrategies, strategyDisplayNames } from '@/constants/constants'
 import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import { useCreateSimulation, useSimulation, useSimulationComparison, useUpdateSimulation } from '@/lib/api/simulations'
+import {
+  useActiveSimulation,
+  useCreateSimulation,
+  useSetActiveSimulation,
+  useSimulation,
+  useSimulationComparison,
+  useUpdateSimulation,
+} from '@/lib/api/simulations'
 import { ArrowRight, Save, X } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
 import { ExtraPayment, SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Progress } from '@/components/ui/progress'
 import { DatePicker } from '@/components/loan-table/date-picker'
+import { Badge } from '@/components/ui/badge'
 
 function Create() {
   const router = useRouter()
@@ -27,6 +35,8 @@ function Create() {
   const simulationId = searchParams.get('id')
   const { data: existingSimulation } = useSimulation(simulationId)
   const { data: simulationComparison, isLoading } = useSimulationComparison(simulationId)
+  const { data: activeSimulation } = useActiveSimulation()
+  const setActiveSimulation = useSetActiveSimulation()
 
   const [currentSimulationComparison, setCurrentSimulationComparison] = useState<SimulationResult>()
   const [name, setName] = useState<string>('')
@@ -110,10 +120,6 @@ function Create() {
     setExtraPayments((prev) => [...prev, { amount: 100, start_date: new Date() }])
   }
 
-  function getTotalExtraPayment() {
-    return extraPayments.reduce((acc, cur) => acc + cur.amount, 0)
-  }
-
   function handleStartDateChange(id: number, date: Date) {
     setExtraPayments((prev) => {
       return prev.map((ep, key) => {
@@ -174,11 +180,20 @@ function Create() {
     <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px) items-start'>
       <div className='p-8 flex flex-col border-r gap-12' style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
         <header className='flex flex-col gap-4'>
-          <p className='text-label'>New Simulation</p>
+          <p className='text-label'>
+            {activeSimulation.active_simulation_id == simulationId && (
+              <span>
+                <Badge>Active</Badge> -
+              </span>
+            )}{' '}
+            {simulationId ? 'Edit' : 'New'} Simulation
+          </p>
+
           <h1 className='font-display text-5xl font-light'>
             Build your
             <br /> payoff strategy
           </h1>
+
           <p className='text-description'>
             Select which loans to include, choose a repayment strategy,
             <br /> and see exactly how much time and money you could save.
@@ -370,7 +385,7 @@ function Create() {
             <span className='hidden md:inline text-xs tracking-widest uppercase'>Run Simulation</span>
             <ArrowRight />
           </Button>
-          {simulationId && (
+          {simulationId && !isModified && (
             <Button className='w-fit px-8 py-5' onClick={() => router.push('/simulations')}>
               <span className='hidden md:inline text-xs tracking-widest uppercase'>Save Simulation</span>
               <Save />
@@ -460,6 +475,16 @@ function Create() {
                 <p className='text-sm'>{formatCurrency(currentSimulationComparison.baseline.total_paid)}</p>
               </div>
             </div>
+
+            {activeSimulation.active_simulation_id != simulationId && (
+              <Button
+                variant='outline'
+                onClick={() => setActiveSimulation.mutateAsync(simulationId)}
+                className='border-primary bg-primary/8'
+              >
+                Set as Active
+              </Button>
+            )}
           </div>
         ) : (
           <div className='flex flex-col gap-2'>

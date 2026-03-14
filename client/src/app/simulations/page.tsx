@@ -30,8 +30,11 @@ export default function Simulations() {
   const deleteSimulation = useDeleteSimulation()
 
   const [filter, setFilter] = useState('All')
+  const sortedSimulations = simulations
+    ?.slice()
+    .sort((a, b) => new Date(b.simulation.created_at).getTime() - new Date(a.simulation.created_at).getTime())
   const filteredSimulations =
-    filter === 'All' ? simulations : simulations.filter((s) => s.simulation.strategy_type === filter)
+    filter === 'All' ? sortedSimulations : sortedSimulations.filter((s) => s.simulation.strategy_type === filter)
 
   return (
     <div className='p-8 flex flex-col gap-8'>
