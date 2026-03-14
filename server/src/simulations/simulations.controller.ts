@@ -23,14 +23,6 @@ export class SimulationsController {
     return this.simulationsService.create(userId, simulation);
   }
 
-  @Get('/comparison/:id')
-  comparison(@User() userId: BigInt, @Param('id') simulationId: string) {
-    return this.simulationsService.getSimulationComparison(
-      userId,
-      BigInt(simulationId),
-    );
-  }
-
   @Get()
   findAll(@User() userId: BigInt) {
     return this.simulationsService.findAll(userId);
@@ -39,6 +31,32 @@ export class SimulationsController {
   @Get('/summary')
   allSummaries(@User() userId: BigInt) {
     return this.simulationsService.getAllSimulationsSummary(userId);
+  }
+
+  @Get('/active')
+  getActiveSimulationId(@User() userId: BigInt) {
+    return this.simulationsService.getActiveSimulationId(userId);
+  }
+
+  @Get('/summary/:id')
+  summary(@User() userId: BigInt, @Param('id') simulationId: string) {
+    return this.simulationsService.getSimulationSummary(
+      userId,
+      BigInt(simulationId),
+    );
+  }
+
+  @Get('/comparison/:id')
+  comparison(@User() userId: BigInt, @Param('id') simulationId: string) {
+    return this.simulationsService.getSimulationComparison(
+      userId,
+      BigInt(simulationId),
+    );
+  }
+
+  @Post('/:id/active')
+  setAsActive(@User() userId: BigInt, @Param('id') id: string) {
+    return this.simulationsService.setAsActive(userId, BigInt(id));
   }
 
   @Get(':id')
@@ -56,14 +74,6 @@ export class SimulationsController {
       userId,
       BigInt(simulationId),
       simulation,
-    );
-  }
-
-  @Get('/summary/:id')
-  summary(@User() userId: BigInt, @Param('id') simulationId: string) {
-    return this.simulationsService.getSimulationSummary(
-      userId,
-      BigInt(simulationId),
     );
   }
 

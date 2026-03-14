@@ -962,6 +962,29 @@ export class SimulationsService {
     );
   }
 
+  async setAsActive(userId: BigInt, simulationId: BigInt) {
+    return await this.db.query(
+      `UPDATE users 
+      SET active_simulation_id = $1
+      WHERE id = $2
+      RETURNING *;
+      `,
+      [simulationId, userId],
+    );
+  }
+
+  async getActiveSimulationId(userId: BigInt) {
+    const result = await this.db.query(
+      `SELECT active_simulation_id
+      FROM users
+      WHERE id = $1;
+      `,
+      [userId],
+    );
+
+    return result[0];
+  }
+
   remove(id: number) {
     return `This action removes a #${id} simulation`;
   }
