@@ -963,7 +963,7 @@ export class SimulationsService {
   }
 
   async setAsActive(userId: BigInt, simulationId: BigInt) {
-    return await this.db.query(
+    const result = await this.db.query(
       `UPDATE users 
       SET active_simulation_id = $1
       WHERE id = $2
@@ -971,6 +971,8 @@ export class SimulationsService {
       `,
       [simulationId, userId],
     );
+
+    return result[0];
   }
 
   async getActiveSimulationId(userId: BigInt) {

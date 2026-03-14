@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { z } from 'zod'
 
 export const loanDbSchema = z.object({
@@ -158,6 +159,10 @@ export const SimulationSummarySchema = z.object({
   perLoan: z.array(PerLoanSchema),
 })
 
+export const ActiveSimulationSchema = z.object({
+  active_simulation_id: z.string().nullable(),
+})
+
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
@@ -170,3 +175,4 @@ export type Savings = z.infer<typeof SavingsSchema>
 export type Totals = z.infer<typeof TotalsSchema>
 export type PerLoan = z.infer<typeof PerLoanSchema>
 export type SimulationSummary = z.infer<typeof SimulationSummarySchema>
+export type ActiveSimulation = z.infer<typeof ActiveSimulationSchema>

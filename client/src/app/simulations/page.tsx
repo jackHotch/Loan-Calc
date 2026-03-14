@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { payoffStrategies, strategyColors } from '@/constants/constants'
 import { StrategyType } from '@/constants/schema'
-import { useAllSimulationSummaries } from '@/lib/api/simulations'
-import { formatCurrency } from '@/lib/utils'
+import { useActiveSimulation, useAllSimulationSummaries, useSetActiveSimulation } from '@/lib/api/simulations'
+import { cn, formatCurrency } from '@/lib/utils'
 import { Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -20,6 +20,8 @@ export default function Simulations() {
     StrategyType.AVALANCHE_INTEREST_FOCUSED,
     StrategyType.SNOWBALL_INTEREST_FOCUSED,
   ]
+  const { data: activeSimulation } = useActiveSimulation()
+  const setActiveSimulation = useSetActiveSimulation()
 
   const [filter, setFilter] = useState('All')
   const filteredSimulations =
@@ -63,6 +65,7 @@ export default function Simulations() {
 
       <div className='flex flex-col gap-4'>
         {filteredSimulations?.map((sim, key) => {
+          const isActiveSimulation = activeSimulation?.active_simulation_id == sim.simulation.id
           return (
             <div key={key}>
               <div className='card flex-col gap-2'>
@@ -104,7 +107,16 @@ export default function Simulations() {
                   </div>
 
                   <div className='flex gap-2'>
-                    <Button variant='outline' className='uppercase text-xs hover:text-primary'>
+                    <Button
+                      variant='outline'
+                      onClick={() => (!isActiveSimulation ? setActiveSimulation.mutateAsync(sim.simulation.id) : null)}
+                      className={cn(
+                        'uppercase text-xs',
+                        isActiveSimulation
+                          ? 'border-primary text-primary bg-primary/8 hover:bg-primary/8 hover:border-primary hover:text-primary cursor-default'
+                          : ' hover:text-primary',
+                      )}
+                    >
                       Set Active
                     </Button>
                     <Button

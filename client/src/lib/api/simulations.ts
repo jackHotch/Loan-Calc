@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAxios } from './useAxios'
 import { ApiError } from './axios'
-import { CreateSimulationInput, Simulation, SimulationSummary } from '@/constants/schema'
-import { SimulationResult } from '@/constants/types'
+import { ActiveSimulation, CreateSimulationInput, Simulation, SimulationSummary } from '@/constants/schema'
+import { SetActiveSimulationResult, SimulationResult } from '@/constants/types'
 
 export const useCreateSimulation = () => {
   const axios = useAxios()
@@ -80,5 +80,32 @@ export const useSimulationComparison = (id) => {
       return response.data
     },
     enabled: !!id,
+  })
+}
+
+export const useActiveSimulation = () => {
+  const axios = useAxios()
+
+  return useQuery<ActiveSimulation, ApiError>({
+    queryKey: ['simulations', 'active'],
+    queryFn: async () => {
+      const response = await axios.get<ActiveSimulation>(`/simulations/active`)
+      return response.data
+    },
+  })
+}
+
+export const useSetActiveSimulation = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<SetActiveSimulationResult, ApiError, string>({
+    mutationFn: async (id) => {
+      const response = await axios.post<SetActiveSimulationResult>(`/simulations/${id}/active`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['simulations', 'active'] })
+    },
   })
 }

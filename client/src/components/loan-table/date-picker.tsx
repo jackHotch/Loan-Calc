@@ -24,8 +24,6 @@ export function DatePicker({
   onChange?: (date: Date | undefined) => void
   className?: CSSProperties
 }) {
-  console.log('datepicker', externalDate)
-  console.log('hhsdhfh', typeof externalDate)
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState<Date | undefined>(externalDate)
   const [month, setMonth] = useState<Date | undefined>(externalDate)

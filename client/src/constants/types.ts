@@ -19,3 +19,11 @@ export interface ExtraPayment {
   amount: number
   start_date: Date
 }
+
+export interface SetActiveSimulationResult {
+  id: string
+  clerk_id: string
+  first_name: string
+  last_name: string
+  active_simulation_id: string
+}
