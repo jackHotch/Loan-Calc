@@ -524,8 +524,6 @@ export class SimulationsService {
       [simulationId, userId],
     );
 
-    // Baseline (actual-only) totals per loan — payment count and interest
-    // if there were no simulation, to compare against for savings
     const baselineTotals = await this.db.query(
       `SELECT
         l.id AS loan_id,
@@ -656,7 +654,6 @@ export class SimulationsService {
   }
 
   async getAllSimulationsSummary(userId: BigInt) {
-    // Fetch all simulations for the user
     const simulations = await this.db.query(
       `SELECT id, name, description, strategy_type, created_at, cascade
       FROM simulations
@@ -668,7 +665,6 @@ export class SimulationsService {
 
     const simulationIds = simulations.map((s) => s.id);
 
-    // Fetch all simulation loans with loan details for all simulations
     const simLoans = await this.db.query(
       `SELECT 
         simulation_loans.simulation_id,
@@ -738,6 +734,13 @@ export class SimulationsService {
       [allLoanIds, userId],
     );
 
+    const extraPayments = await this.db.query(
+      `SELECT simulation_id, amount, start_date
+       FROM simulation_extra_payments
+       WHERE simulation_id = ANY($1)`,
+      [simulationIds],
+    );
+
     const now = new Date();
 
     return simulations.map((simulation) => {
@@ -760,6 +763,27 @@ export class SimulationsService {
       const simTotalsForSim = simTotals.filter(
         (r) => r.simulation_id === simulation.id,
       );
+
+      const simExtraPayments = extraPayments
+        .filter((ep) => ep.simulation_id === simulation.id)
+        .map((ep) => ({
+          amount: new Decimal(ep.amount).toDecimalPlaces(2).toNumber(),
+          start_date: ep.start_date,
+        }));
+
+      const activeExtraPayment =
+        simExtraPayments
+          .filter((ep) => new Date(ep.start_date) <= now)
+          .sort(
+            (a, b) =>
+              new Date(b.start_date).getTime() -
+              new Date(a.start_date).getTime(),
+          )[0] ??
+        simExtraPayments.sort(
+          (a, b) =>
+            new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
+        )[0] ??
+        null;
 
       const perLoan = simTotalsForSim.map((sim) => {
         const actual = actualTotals.find((a) => a.loan_id === sim.loan_id);
@@ -867,10 +891,23 @@ export class SimulationsService {
             : 0,
       };
 
+      const lastPayoffDate = totals.payoff_date
+        ? new Date(totals.payoff_date)
+        : null;
+      const months_til_payoff = lastPayoffDate
+        ? (lastPayoffDate.getFullYear() - now.getFullYear()) * 12 +
+          (lastPayoffDate.getMonth() - now.getMonth())
+        : null;
+
       return {
         simulation,
         savings,
-        totals,
+        totals: {
+          ...totals,
+          months_til_payoff,
+          extra_payments: simExtraPayments,
+          active_extra_payment: activeExtraPayment?.amount ?? null,
+        },
         perLoan,
       };
     });

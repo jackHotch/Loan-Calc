@@ -5,14 +5,14 @@ export const payoffStrategies = [
   {
     name: StrategyType.AVALANCHE,
     description: 'Tackle the biggest debt head-on — frees up the largest monthly minimums once paid off',
-    icon: <p className='h-fit'>▼</p>,
+    icon: '▼',
     type: 'Interest',
     ascending: false,
   },
   {
     name: StrategyType.SNOWBALL,
     description: 'Lowest balance first — builds momentum with quick wins',
-    icon: <p className='h-fit'>●</p>,
+    icon: '●',
     type: 'Principal',
     ascending: true,
   },

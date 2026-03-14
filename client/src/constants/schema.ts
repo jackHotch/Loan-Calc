@@ -124,6 +124,14 @@ export const TotalsSchema = z.object({
   total_interest_paid: z.number(),
   total_paid: z.number(),
   payoff_date: z.string().nullable(),
+  months_til_payoff: z.number().int().nullable(),
+  extra_payments: z.array(
+    z.object({
+      amount: z.number(),
+      start_date: z.string(),
+    }),
+  ),
+  active_extra_payment: z.number().nullable(),
 })
 
 export const PerLoanSchema = z.object({
