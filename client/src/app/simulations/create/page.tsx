@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { useCreateSimulation, useSimulation, useSimulationComparison, useUpdateSimulation } from '@/lib/api/simulations'
-import { ArrowRight, Save } from 'lucide-react'
+import { ArrowRight, Save, X } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
 import { ExtraPayment, SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -313,6 +313,13 @@ function Create() {
                     </button>
 
                     <DatePicker value={ep.start_date} onChange={(val) => handleStartDateChange(key, val)} />
+
+                    <div
+                      onClick={() => setExtraPayments((prev) => prev.filter((_, index) => index != key))}
+                      className='flex justify-center items-center border border-red-500/50 p-1 text-xs text-red-500/50 cursor-pointer'
+                    >
+                      <X />
+                    </div>
                   </div>
                 </div>
               )
