@@ -49,7 +49,7 @@ export function formatCurrency(amount: number, decimalPlaces: number = 2) {
   }
 }
 
-function formatDate(date: Date): string {
+export function formatDate(date: Date): string {
   if (date) {
     return new Date(date).toLocaleDateString('en-US', {
       month: 'numeric',

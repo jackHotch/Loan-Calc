@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLoans } from '@/lib/api/loans'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { payoffStrategies, strategyDisplayNames } from '@/constants/constants'
 import { useEffect, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
@@ -422,12 +422,18 @@ export function CreateSimulation() {
               </div>
               <div className='flex justify-between items-center w-full'>
                 <p className='text-description'>Rollover Payments</p>
-                <p className='text-sm text-primary'>{cascade ? 'True' : 'False'}</p>
+                <p className='text-sm'>{cascade ? 'True' : 'False'}</p>
               </div>
               <div className='flex justify-between items-center w-full'>
                 <p className='text-description'>Payoff in</p>
                 <p className='text-sm text-primary'>
                   {currentSimulationComparison.simulation.months_until_payoff} months
+                </p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Payoff Date</p>
+                <p className='text-sm text-primary'>
+                  {formatDate(new Date(currentSimulationComparison.simulation.payoff_date))}
                 </p>
               </div>
               <div className='flex justify-between items-center w-full'>
@@ -467,13 +473,17 @@ export function CreateSimulation() {
               <p className='text-label mb-2'>Baseline</p>
               <div className='flex justify-between items-center w-full'>
                 <p className='text-description'>Payoff in</p>
-                <p className='text-sm'>{currentSimulationComparison.baseline.months_until_payoff}</p>
+                <p className='text-sm text-red-400'>{currentSimulationComparison.baseline.months_until_payoff}</p>
+              </div>
+              <div className='flex justify-between items-center w-full'>
+                <p className='text-description'>Payoff Date</p>
+                <p className='text-sm text-red-400'>
+                  {formatDate(new Date(currentSimulationComparison.baseline.payoff_date))}
+                </p>
               </div>
               <div className='flex justify-between items-center w-full'>
                 <p className='text-description'>Total Interest</p>
-                <p className='text-sm text-red-400'>
-                  {formatCurrency(currentSimulationComparison.baseline.total_interest_paid)}
-                </p>
+                <p className='text-sm'>{formatCurrency(currentSimulationComparison.baseline.total_interest_paid)}</p>
               </div>
               <div className='flex justify-between items-center w-full'>
                 <p className='text-description'>Total Paid</p>

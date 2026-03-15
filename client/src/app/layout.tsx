@@ -16,7 +16,7 @@ import { SidebarInsetWrapper } from '@/components/sidebar/sidebar-inset-wrapper'
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
-  title: 'Student Loan Calc',
+  title: 'Loan Tracker',
 }
 
 export default function RootLayout({
