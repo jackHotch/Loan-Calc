@@ -1,13 +1,25 @@
-import { Body, Controller, Delete, Get, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
+import { User } from 'src/auth/user.decorator';
+import { ClerkAuthGuard } from 'src/auth/clerk-auth.guard';
 
 @Controller('users')
+@UseGuards(ClerkAuthGuard)
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get()
-  getUser(@Body() data: { id: number }) {
-    return this.usersService.getUser(data);
+  getUser(@User() userId: BigInt) {
+    return this.usersService.getUser(userId);
   }
 
   @Post()

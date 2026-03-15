@@ -126,7 +126,7 @@ export default function Simulations() {
                           : ' hover:text-primary',
                       )}
                     >
-                      Set Active
+                      {isActiveSimulation ? 'Active' : 'Set Active'}
                     </Button>
                     <Button
                       variant='outline'
