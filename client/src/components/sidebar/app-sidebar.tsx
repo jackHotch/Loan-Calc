@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { DollarSign, Calculator, ChartLine, Layers, ArrowLeftRight } from 'lucide-react'
+import { DollarSign, Calculator, Layers, ArrowLeftRight } from 'lucide-react'
 
 import { NavList } from '@/components/sidebar/nav-list'
 import { NavUser } from '@/components/sidebar/nav-user'
@@ -16,34 +16,27 @@ import {
 } from '@/components/ui/sidebar'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-
-const data = {
-  user: {
-    name: 'shadcn',
-    email: 'm@example.com',
-    avatar: '/avatars/shadcn.jpg',
-  },
-  navList: [
-    {
-      title: 'Loans',
-      url: '/loans',
-      icon: DollarSign,
-    },
-    {
-      title: 'Simulations',
-      url: '/simulations',
-      icon: Layers,
-    },
-    {
-      title: 'Compare',
-      url: '/compare',
-      icon: ArrowLeftRight,
-    },
-  ],
-}
+import { useUser } from '@/lib/api/users'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const { data: user } = useUser()
+
+  const data = {
+    user: user,
+    navList: [
+      {
+        title: 'Loans',
+        url: '/loans',
+        icon: DollarSign,
+      },
+      {
+        title: 'Simulations',
+        url: '/simulations',
+        icon: Layers,
+      },
+    ],
+  }
 
   if (pathname == '/') return null
 

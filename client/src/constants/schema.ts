@@ -173,6 +173,14 @@ export const DeleteSimulationSchema = z.object({
   cascade: z.string(),
 })
 
+export const UserSchema = z.object({
+  id: z.string(),
+  clerk_id: z.string(),
+  first_name: z.string(),
+  last_name: z.string(),
+  email: z.string(),
+})
+
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
@@ -187,3 +195,4 @@ export type PerLoan = z.infer<typeof PerLoanSchema>
 export type SimulationSummary = z.infer<typeof SimulationSummarySchema>
 export type ActiveSimulation = z.infer<typeof ActiveSimulationSchema>
 export type DeleteSimulation = z.infer<typeof DeleteSimulationSchema>
+export type User = z.infer<typeof UserSchema>
