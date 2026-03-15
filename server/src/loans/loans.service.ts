@@ -281,14 +281,14 @@ export class LoansService {
         name = COALESCE($1, name),
         lender = COALESCE($2, lender),
         starting_principal = COALESCE($3, starting_principal),
-        interest_rate = COALESCE($5, interest_rate),
-        minimum_payment = COALESCE($6, minimum_payment),
-        extra_payment = COALESCE($7, extra_payment),
-        extra_payment_start_date = COALESCE($8, extra_payment_start_date),
-        start_date = COALESCE($9, start_date),
-        payment_day_of_month = COALESCE($10, payment_day_of_month)
-      WHERE id = $11
-      AND user_id = $12
+        interest_rate = COALESCE($4, interest_rate),
+        minimum_payment = COALESCE($5, minimum_payment),
+        extra_payment = COALESCE($6, extra_payment),
+        extra_payment_start_date = COALESCE($7, extra_payment_start_date),
+        start_date = COALESCE($8, start_date),
+        payment_day_of_month = COALESCE($9, payment_day_of_month)
+      WHERE id = $10
+      AND user_id = $11
       RETURNING *`,
       [
         loan.name,

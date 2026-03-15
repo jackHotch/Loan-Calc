@@ -5,12 +5,13 @@ import './globals.css'
 import { Header } from '@/components/header/header'
 import { cn } from '@/lib/utils'
 import { ThemeProvider } from '@/providers/theme-provider'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/sidebar/app-sidebar'
 import { SiteHeader } from '@/components/header/site-header'
 import { Providers } from './providers'
 import { Toaster } from '@/components/ui/sonner'
 import { CircleCheck, CircleX } from 'lucide-react'
+import { SidebarInsetWrapper } from '@/components/sidebar/sidebar-inset-wrapper'
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -32,7 +33,7 @@ export default function RootLayout({
               <Header />
               <SidebarProvider>
                 <AppSidebar />
-                <SidebarInset className='overflow-visible'>
+                <SidebarInsetWrapper>
                   <SiteHeader />
                   <Toaster
                     icons={{
@@ -41,7 +42,7 @@ export default function RootLayout({
                     }}
                   />
                   {children}
-                </SidebarInset>
+                </SidebarInsetWrapper>
               </SidebarProvider>
             </Providers>
           </ThemeProvider>

@@ -81,9 +81,18 @@ export function TableCellViewer({
   }
 
   return (
-    <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction={isMobile ? 'bottom' : 'right'}>
+    <Drawer
+      open={drawerOpen}
+      onOpenChange={(open) => {
+        setDrawerOpen(open)
+        if (!open) {
+          form.reset()
+        }
+      }}
+      direction={isMobile ? 'bottom' : 'right'}
+    >
       <DrawerTrigger asChild>{children}</DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className='!w-[600px]'>
         <DrawerHeader className='gap-1'>
           <DrawerTitle>{isNewLoan ? 'New Loan' : 'Edit Loan'}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>

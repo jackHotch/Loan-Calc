@@ -139,10 +139,9 @@ export class PaymentScheduleService {
     let startDate: Date;
 
     if (lastActualPayment) {
-      const lastPayment = lastActualPayment[0];
-      startFromPaymentNumber = lastPayment.payment_number + 1;
-      startingPrincipal = lastPayment.remaining_principal;
-      startDate = new Date(lastPayment.payment_date);
+      startFromPaymentNumber = lastActualPayment.payment_number + 1;
+      startingPrincipal = lastActualPayment.remaining_principal;
+      startDate = new Date(lastActualPayment.payment_date);
       startDate.setMonth(startDate.getMonth() + 1);
     } else {
       startFromPaymentNumber = 1;
