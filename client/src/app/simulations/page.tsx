@@ -3,6 +3,15 @@
 import { DeleteSimulation } from '@/components/simulations/delete-simulation'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { payoffStrategies, strategyColors } from '@/constants/constants'
 import { StrategyType } from '@/constants/schema'
 import {
@@ -54,23 +63,51 @@ export default function Simulations() {
         </div>
       </header>
 
-      <div className='flex gap-4 border-b border-b-muted-foreground/50 mt-8'>
-        {filters.map((f, key) => {
-          const styles =
-            f === filter
-              ? 'text-primary border-b-2 border-b-primary hover:text-primary'
-              : 'text-muted-foreground/50 hover:text-muted-foreground'
-          return (
-            <Button
-              key={key}
-              variant='ghost'
-              className={`uppercase tracking-widest text-xs ${styles}`}
-              onClick={() => setFilter(f)}
-            >
-              {f}
-            </Button>
-          )
-        })}
+      <div className='flex justify-between items-center border-b border-b-muted-foreground/50 mt-8'>
+        <div className='flex gap-4'>
+          {filters.map((f, key) => {
+            const styles =
+              f === filter
+                ? 'text-primary border-b-2 border-b-primary hover:text-primary'
+                : 'text-muted-foreground/50 hover:text-muted-foreground'
+            return (
+              <Button
+                key={key}
+                variant='ghost'
+                className={`uppercase tracking-widest text-xs ${styles}`}
+                onClick={() => setFilter(f)}
+              >
+                {f}
+              </Button>
+            )
+          })}
+        </div>
+
+        <Select>
+          <SelectTrigger>
+            <SelectValue placeholder='Sort By' />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Sort By</SelectLabel>
+              <SelectItem value='createdAt' className='text-xs'>
+                Created At
+              </SelectItem>
+              <SelectItem value='updatedAt' className='text-xs'>
+                Updated At
+              </SelectItem>
+              <SelectItem value='interestSaved' className='text-xs'>
+                Interest Saved
+              </SelectItem>
+              <SelectItem value='monthsSaved' className='text-xs'>
+                Months Saved
+              </SelectItem>
+              <SelectItem value='monthsTilPayoff' className='text-xs'>
+                Months til Payoff
+              </SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className='flex flex-col gap-4'>
