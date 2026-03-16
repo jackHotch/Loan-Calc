@@ -24,6 +24,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Progress } from '@/components/ui/progress'
 import { DatePicker } from '@/components/loan-table/date-picker'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '../ui/checkbox'
 
 export function CreateSimulation() {
   const router = useRouter()
@@ -48,7 +49,7 @@ export function CreateSimulation() {
 
   useEffect(() => {
     if (loans && !existingSimulation && !simulationId) {
-      setSelectedLoans(new Set(loans.map((l) => l.id)))
+      setSelectedLoans(new Set(loans.map((l) => BigInt(l.id))))
     }
   }, [loans])
 
@@ -138,6 +139,14 @@ export function CreateSimulation() {
     })
   }
 
+  function toggleSelectAllLoans() {
+    if (selectedLoans.size !== loans.length) {
+      setSelectedLoans(new Set(loans.map((l) => BigInt(l.id))))
+    } else {
+      setSelectedLoans(new Set())
+    }
+  }
+
   async function handleRunSimulation() {
     let simulation: SimulationResult
     if (simulationId) {
@@ -166,6 +175,12 @@ export function CreateSimulation() {
     setCurrentSimulationComparison(simulation)
     setSimulationId(simulation.simulation_id)
   }
+  useEffect(() => {
+    if (loans) {
+      console.log('loan id:', loans[0].id, typeof loans[0].id)
+      console.log('selectedLoans:', [...selectedLoans])
+    }
+  }, [loans, selectedLoans])
 
   const selected = loans?.filter((l) => selectedLoans.has(BigInt(l.id)))
   const totalBalance = selected?.reduce((s, l) => s + Number(l.current_principal), 0)
@@ -227,6 +242,14 @@ export function CreateSimulation() {
 
         <div className='flex flex-col gap-2'>
           <h2 className='font-display text-2xl mb-4'>Select loans to include</h2>
+
+          <div className='flex gap-2 w-fit justify-center items-center'>
+            <Checkbox
+              checked={selectedLoans.size > 0 && selectedLoans.size === loans?.length}
+              onCheckedChange={toggleSelectAllLoans}
+            />
+            <Label>Select All</Label>
+          </div>
 
           {loans?.map((loan, key) => {
             const isSelected = selectedLoans.has(BigInt(loan.id))

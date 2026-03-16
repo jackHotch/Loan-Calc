@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteSimulation } from '@/components/simulations/delete-simulation'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { payoffStrategies, strategyColors } from '@/constants/constants'
@@ -135,13 +136,14 @@ export default function Simulations() {
                     >
                       Edit
                     </Button>
-                    <Button
-                      variant='outline'
-                      onClick={() => deleteSimulation.mutateAsync(sim.simulation.id)}
-                      className='uppercase text-xs hover:text-red-500/60 hover:border-red-500/60'
-                    >
-                      Delete
-                    </Button>
+                    <DeleteSimulation deleteAction={() => deleteSimulation.mutateAsync(sim.simulation.id)}>
+                      <Button
+                        variant='outline'
+                        className='uppercase text-xs hover:text-red-500/60 hover:border-red-500/60'
+                      >
+                        Delete
+                      </Button>
+                    </DeleteSimulation>
                   </div>
                 </div>
 
