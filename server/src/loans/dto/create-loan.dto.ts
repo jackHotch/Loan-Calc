@@ -29,9 +29,8 @@ export class CreateLoanDto {
   @IsDate()
   extra_payment_start_date: Date;
 
-  @Type(() => Date)
-  @IsDate()
-  start_date: Date;
+  @IsString()
+  start_date: string;
 
   @IsNumber()
   payment_day_of_month: number;

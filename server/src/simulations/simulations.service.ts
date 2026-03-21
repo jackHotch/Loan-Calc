@@ -655,7 +655,7 @@ export class SimulationsService {
 
   async getAllSimulationsSummary(userId: BigInt) {
     const simulations = await this.db.query(
-      `SELECT id, name, description, strategy_type, created_at, cascade
+      `SELECT id, name, description, strategy_type, created_at, cascade, updated_at
       FROM simulations
       WHERE user_id = $1`,
       [userId],

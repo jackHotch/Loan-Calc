@@ -1,7 +1,17 @@
 'use client'
 
+import { DeleteSimulation } from '@/components/simulations/delete-simulation'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { payoffStrategies, strategyColors } from '@/constants/constants'
 import { StrategyType } from '@/constants/schema'
 import {
@@ -11,9 +21,9 @@ import {
   useSetActiveSimulation,
 } from '@/lib/api/simulations'
 import { cn, formatCurrency } from '@/lib/utils'
-import { Plus } from 'lucide-react'
+import { Plus, MoveUp, MoveDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 export default function Simulations() {
   const router = useRouter()
@@ -29,12 +39,48 @@ export default function Simulations() {
   const setActiveSimulation = useSetActiveSimulation()
   const deleteSimulation = useDeleteSimulation()
 
+  const sortDefaults: Record<string, boolean> = {
+    createdAt: false,
+    updatedAt: false,
+    interestSaved: false,
+    monthsSaved: false,
+    monthsTilPayoff: true,
+  }
   const [filter, setFilter] = useState('All')
-  const sortedSimulations = simulations
-    ?.slice()
-    .sort((a, b) => new Date(b.simulation.created_at).getTime() - new Date(a.simulation.created_at).getTime())
+  const [sortBy, setSortBy] = useState('updatedAt')
+  const [sortAsc, setSortAsc] = useState(sortDefaults['updatedAt'])
+
+  function handleSortChange(value: string) {
+    setSortBy(value)
+    setSortAsc(sortDefaults[value])
+  }
+
   const filteredSimulations =
-    filter === 'All' ? sortedSimulations : sortedSimulations.filter((s) => s.simulation.strategy_type === filter)
+    filter === 'All' ? simulations : simulations.filter((s) => s.simulation.strategy_type === filter)
+  const sortedSimulations = useMemo(() => {
+    if (!filteredSimulations) return []
+    return [...filteredSimulations].sort((a, b) => {
+      let result = 0
+      switch (sortBy) {
+        case 'createdAt':
+          result = new Date(b.simulation.created_at).getTime() - new Date(a.simulation.created_at).getTime()
+          break
+        case 'updatedAt':
+          result = new Date(b.simulation.updated_at).getTime() - new Date(a.simulation.updated_at).getTime()
+          break
+        case 'interestSaved':
+          result = b.savings.interest_saved - a.savings.interest_saved
+          break
+        case 'monthsSaved':
+          result = b.savings.months_saved - a.savings.months_saved
+          break
+        case 'monthsTilPayoff':
+          result = a.totals.months_til_payoff - b.totals.months_til_payoff
+          break
+      }
+      return sortAsc ? -result : result
+    })
+  }, [filteredSimulations, sortBy, sortAsc])
 
   return (
     <div className='p-8 flex flex-col gap-8'>
@@ -53,27 +99,61 @@ export default function Simulations() {
         </div>
       </header>
 
-      <div className='flex gap-4 border-b border-b-muted-foreground/50 mt-8'>
-        {filters.map((f, key) => {
-          const styles =
-            f === filter
-              ? 'text-primary border-b-2 border-b-primary hover:text-primary'
-              : 'text-muted-foreground/50 hover:text-muted-foreground'
-          return (
-            <Button
-              key={key}
-              variant='ghost'
-              className={`uppercase tracking-widest text-xs ${styles}`}
-              onClick={() => setFilter(f)}
-            >
-              {f}
-            </Button>
-          )
-        })}
+      <div className='flex justify-between items-center border-b border-b-muted-foreground/50 mt-8'>
+        <div className='flex gap-4'>
+          {filters.map((f, key) => {
+            const styles =
+              f === filter
+                ? 'text-primary border-b-2 border-b-primary hover:text-primary'
+                : 'text-muted-foreground/50 hover:text-muted-foreground'
+            return (
+              <Button
+                key={key}
+                variant='ghost'
+                className={`uppercase tracking-widest text-xs ${styles}`}
+                onClick={() => setFilter(f)}
+              >
+                {f}
+              </Button>
+            )
+          })}
+        </div>
+
+        <div className='flex'>
+          <Select value={sortBy} onValueChange={handleSortChange}>
+            <SelectTrigger>
+              <SelectValue placeholder='Sort By' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Sort By</SelectLabel>
+                <SelectItem value='createdAt' className='text-xs'>
+                  Created At
+                </SelectItem>
+                <SelectItem value='updatedAt' className='text-xs'>
+                  Updated At
+                </SelectItem>
+                <SelectItem value='interestSaved' className='text-xs'>
+                  Interest Saved
+                </SelectItem>
+                <SelectItem value='monthsSaved' className='text-xs'>
+                  Months Saved
+                </SelectItem>
+                <SelectItem value='monthsTilPayoff' className='text-xs'>
+                  Months til Payoff
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+
+          <Button variant='outline' onClick={() => setSortAsc((prev) => !prev)} className='border-input'>
+            {sortAsc ? <MoveUp /> : <MoveDown />}
+          </Button>
+        </div>
       </div>
 
       <div className='flex flex-col gap-4'>
-        {filteredSimulations?.map((sim, key) => {
+        {sortedSimulations?.map((sim, key) => {
           const isActiveSimulation = activeSimulation?.active_simulation_id == sim.simulation.id
           return (
             <div key={key}>
@@ -135,13 +215,14 @@ export default function Simulations() {
                     >
                       Edit
                     </Button>
-                    <Button
-                      variant='outline'
-                      onClick={() => deleteSimulation.mutateAsync(sim.simulation.id)}
-                      className='uppercase text-xs hover:text-red-500/60 hover:border-red-500/60'
-                    >
-                      Delete
-                    </Button>
+                    <DeleteSimulation deleteAction={() => deleteSimulation.mutateAsync(sim.simulation.id)}>
+                      <Button
+                        variant='outline'
+                        className='uppercase text-xs hover:text-red-500/60 hover:border-red-500/60'
+                      >
+                        Delete
+                      </Button>
+                    </DeleteSimulation>
                   </div>
                 </div>
 
