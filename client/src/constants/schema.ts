@@ -111,6 +111,7 @@ export const SimulationSchema = z.object({
     StrategyType.SNOWBALL_INTEREST_FOCUSED,
   ]),
   created_at: z.date(),
+  updated_at: z.date(),
   cascade: z.boolean(),
   extra_payments: z.array(extraPaymentSchema),
   loans: z.array(simulationLoanSchema),
