@@ -1,4 +1,3 @@
-import { X } from 'lucide-react'
 import { z } from 'zod'
 
 export const loanDbSchema = z.object({
@@ -12,7 +11,7 @@ export const loanDbSchema = z.object({
   minimum_payment: z.number(),
   extra_payment: z.number().nullable(),
   extra_payment_start_date: z.date().nullable(),
-  start_date: z.date(),
+  start_date: z.string(),
   payment_day_of_month: z.number(),
   payoff_date: z.date(),
   total_interest_paid: z.number().nonnegative(),

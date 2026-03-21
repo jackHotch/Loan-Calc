@@ -30,8 +30,8 @@ export function dbToTable(loan: LoanDb): LoanTable {
     minimum_payment: formatCurrency(loan.minimum_payment),
     extra_payment: formatCurrency(loan.extra_payment || 0),
     extra_payment_start_date: formatDate(loan.extra_payment_start_date),
-    start_date: formatDate(loan.start_date),
-    next_payment_date: getNextPaymentDate(loan.payment_day_of_month),
+    start_date: formatDate(new Date(loan.start_date)),
+    next_payment_date: getNextPaymentDate(loan.payment_day_of_month, loan.start_date),
     payoff_date: formatDate(loan.payoff_date),
     total_interest_paid: formatCurrency(loan.total_interest_paid),
     total_amount_paid: formatCurrency(loan.total_amount_paid),
@@ -59,15 +59,20 @@ export function formatDate(date: Date): string {
   }
 }
 
-function getNextPaymentDate(dayOfMonth: number): string {
-  if (dayOfMonth === 0) {
-    return ''
-  }
+function getNextPaymentDate(dayOfMonth: number, startDate: string): string {
+  if (dayOfMonth === 0) return ''
 
   const today = new Date()
-  const result = new Date(today.getFullYear(), today.getMonth(), dayOfMonth)
+  today.setHours(0, 0, 0, 0)
 
-  if (result <= today) {
+  const parsedStart = new Date(startDate)
+  parsedStart.setHours(0, 0, 0, 0)
+
+  const reference = parsedStart > today ? parsedStart : today
+
+  const result = new Date(reference.getFullYear(), reference.getMonth(), dayOfMonth)
+
+  if (result <= reference) {
     result.setMonth(result.getMonth() + 1)
   }
 
@@ -89,7 +94,7 @@ export function formToDb(
     minimum_payment: form.minimum_payment,
     extra_payment: form.extra_payment || null,
     extra_payment_start_date: form.extra_payment_start_date,
-    start_date: form.start_date,
+    start_date: formatDate(form.start_date),
     payment_day_of_month: form.next_payment_date.getDate(),
     payoff_date: form.payoff_date,
   }
