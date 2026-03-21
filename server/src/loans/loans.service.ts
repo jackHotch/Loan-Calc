@@ -64,7 +64,7 @@ export class LoansService {
         l.extra_payment_start_date,
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
-        last_actual.remaining_principal AS current_principal,
+        COALESCE(last_actual.remaining_principal, l.starting_principal) AS current_principal,
         last_schedule.payment_date AS payoff_date
       FROM
         loans l
@@ -123,7 +123,7 @@ export class LoansService {
         l.extra_payment_start_date,
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
-        last_actual.remaining_principal AS current_principal,
+        COALESCE(last_actual.remaining_principal, l.starting_principal) AS current_principal,
         last_schedule.payment_date AS payoff_date
       FROM
         loans l
