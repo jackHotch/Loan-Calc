@@ -103,6 +103,8 @@ export class SimulationsService {
       const target = loanStates.find((l) => l.simulationBalance.gt(0));
       if (target) target.extraPaymentTarget = true;
 
+      let monthlyOverflow = new Decimal(0);
+
       for (const loan of loanStates) {
         if (loan.simulationBalance.lte(0)) continue;
 
@@ -115,7 +117,9 @@ export class SimulationsService {
         ).plus(cascadeBonus);
 
         let extraPaymentApplied: Decimal =
-          loan.extraPaymentTarget === true ? extraPaymentPool : new Decimal(0);
+          loan.extraPaymentTarget === true
+            ? extraPaymentPool.plus(monthlyOverflow)
+            : monthlyOverflow;
 
         let remainingPrincipal = new Decimal(loan.simulationBalance);
 
@@ -128,18 +132,18 @@ export class SimulationsService {
           .mul(monthlyRate)
           .toDecimalPlaces(2);
 
-        let totalPayment = new Decimal(loan.minimum_payment);
-        if (loan.extraPaymentTarget === true) {
-          totalPayment = totalPayment.plus(extraPaymentPool);
-        }
+        let totalPayment = new Decimal(loan.minimum_payment).plus(extraPaymentApplied);
 
         let monthlyPrincipalPaid = new Decimal(totalPayment)
           .minus(monthlyInterestPaid)
           .toDecimalPlaces(2);
 
         if (monthlyPrincipalPaid.gt(remainingPrincipal)) {
+          monthlyOverflow = monthlyPrincipalPaid.minus(remainingPrincipal);
           monthlyPrincipalPaid = remainingPrincipal;
           extraPaymentApplied = new Decimal(0);
+        } else {
+          monthlyOverflow = new Decimal(0);
         }
 
         remainingPrincipal = loan.simulationBalance.minus(monthlyPrincipalPaid);
