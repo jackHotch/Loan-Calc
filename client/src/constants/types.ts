@@ -20,6 +20,11 @@ export interface ExtraPayment {
   start_date: Date
 }
 
+export interface LumpSumPayment {
+  amount: number
+  date: Date
+}
+
 export interface SetActiveSimulationResult {
   id: string
   clerk_id: string

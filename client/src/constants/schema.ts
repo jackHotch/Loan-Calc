@@ -63,6 +63,13 @@ export const extraPaymentSchema = z.object({
   start_date: z.date(),
 })
 
+export const lumpSumPaymentSchema = z.object({
+  id: z.number().optional(),
+  simulation_id: z.number().optional(),
+  amount: z.number().min(0),
+  date: z.date(),
+})
+
 export const createSimulationSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
@@ -73,6 +80,7 @@ export const createSimulationSchema = z.object({
     StrategyType.SNOWBALL_INTEREST_FOCUSED,
   ]),
   extra_payments: z.array(extraPaymentSchema).default([]),
+  lump_sum_payments: z.array(lumpSumPaymentSchema).default([]),
   cascade: z.boolean(),
   loan_ids: z.array(z.number()).nonempty(),
 })
@@ -113,6 +121,7 @@ export const SimulationSchema = z.object({
   updated_at: z.date(),
   cascade: z.boolean(),
   extra_payments: z.array(extraPaymentSchema),
+  lump_sum_payments: z.array(lumpSumPaymentSchema),
   loans: z.array(simulationLoanSchema),
 })
 

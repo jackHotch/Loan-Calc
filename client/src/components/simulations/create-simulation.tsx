@@ -19,12 +19,13 @@ import {
 } from '@/lib/api/simulations'
 import { ArrowRight, Save, X } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
-import { ExtraPayment, SimulationResult } from '@/constants/types'
+import { ExtraPayment, LumpSumPayment, SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Progress } from '@/components/ui/progress'
 import { DatePicker } from '@/components/loan-table/date-picker'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '../ui/checkbox'
+import { PaymentCard } from './payment-card'
 
 export function CreateSimulation() {
   const router = useRouter()
@@ -44,8 +45,8 @@ export function CreateSimulation() {
   const [description, setDescription] = useState<string>('')
   const [selectedLoans, setSelectedLoans] = useState<Set<bigint>>(new Set())
   const [strategyType, setStrategyType] = useState<StrategyType>(StrategyType.AVALANCHE)
-  // const [extraPayments, setExtraPayments] = useState<ExtraPayment[]>([{ amount: 100, start_date: new Date() }])
   const [extraPayments, setExtraPayments] = useState<ExtraPayment[]>([])
+  const [lumpSumPayments, setLumpSumPayments] = useState<LumpSumPayment[]>([])
   const [cascade, setCascade] = useState<boolean>(false)
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export function CreateSimulation() {
       strategyType !== existingSimulation.strategy_type ||
       cascade !== existingSimulation.cascade ||
       !sameExtraPayments(extraPayments, existingSimulation.extra_payments) ||
+      !sameLumpSumPayments(lumpSumPayments, existingSimulation.lump_sum_payments) ||
       !sameArrays(
         Array.from(selectedLoans).map(Number),
         existingSimulation.loans.map((l) => l.loan_id),
@@ -80,6 +82,12 @@ export function CreateSimulation() {
       existingSimulation.extra_payments?.map((ep) => ({
         ...ep,
         start_date: new Date(ep.start_date),
+      })) ?? [],
+    )
+    setLumpSumPayments(
+      existingSimulation.lump_sum_payments?.map((lsp) => ({
+        ...lsp,
+        date: new Date(lsp.date),
       })) ?? [],
     )
     setCascade(existingSimulation.cascade)
@@ -101,6 +109,15 @@ export function CreateSimulation() {
     )
   }
 
+  function sameLumpSumPayments(a: LumpSumPayment[], b: LumpSumPayment[]) {
+    const normA = a ?? []
+    const normB = b ?? []
+    if (normA.length !== normB.length) return false
+    return normA.every(
+      (ep, i) => ep.amount === normB[i].amount && new Date(ep.date).getTime() === new Date(normB[i].date).getTime(),
+    )
+  }
+
   function setSimulationId(id: number) {
     const params = new URLSearchParams(searchParams.toString())
     params.set('id', String(id))
@@ -112,6 +129,18 @@ export function CreateSimulation() {
       const currentLoans = new Set(prev)
       currentLoans.has(id) ? currentLoans.delete(id) : currentLoans.add(id)
       return currentLoans
+    })
+  }
+
+  function addToLumpSumPayment(id: number, extraAmount: number) {
+    setLumpSumPayments((prev) => {
+      return prev.map((ep, key) => {
+        if (key == id) {
+          return { ...ep, amount: ep.amount + extraAmount }
+        } else {
+          return ep
+        }
+      })
     })
   }
 
@@ -131,11 +160,27 @@ export function CreateSimulation() {
     setExtraPayments((prev) => [...prev, { amount: 100, start_date: new Date() }])
   }
 
-  function handleStartDateChange(id: number, date: Date) {
+  function addLumpSumPayment() {
+    setLumpSumPayments((prev) => [...prev, { amount: 100, date: new Date() }])
+  }
+
+  function handleExtraPaymentDateChange(id: number, date: Date) {
     setExtraPayments((prev) => {
       return prev.map((ep, key) => {
         if (key == id) {
           return { ...ep, start_date: date }
+        } else {
+          return ep
+        }
+      })
+    })
+  }
+
+  function handleLumpSumPaymentDateChange(id: number, date: Date) {
+    setLumpSumPayments((prev) => {
+      return prev.map((ep, key) => {
+        if (key == id) {
+          return { ...ep, date: date }
         } else {
           return ep
         }
@@ -161,6 +206,7 @@ export function CreateSimulation() {
           description,
           strategy_type: strategyType,
           extra_payments: extraPayments,
+          lump_sum_payments: lumpSumPayments,
           cascade,
           loan_ids: [...new Set(Array.from(selectedLoans).map(Number))],
         },
@@ -171,6 +217,7 @@ export function CreateSimulation() {
         description,
         strategy_type: strategyType,
         extra_payments: extraPayments,
+        lump_sum_payments: lumpSumPayments,
         cascade,
         loan_ids: [...new Set(Array.from(selectedLoans).map(Number))],
       })
@@ -179,12 +226,6 @@ export function CreateSimulation() {
     setCurrentSimulationComparison(simulation)
     setSimulationId(simulation.simulation_id)
   }
-  useEffect(() => {
-    if (loans) {
-      console.log('loan id:', loans[0].id, typeof loans[0].id)
-      console.log('selectedLoans:', [...selectedLoans])
-    }
-  }, [loans, selectedLoans])
 
   const selected = loans?.filter((l) => selectedLoans.has(BigInt(l.id)))
   const totalBalance = selected?.reduce((s, l) => s + Number(l.current_principal), 0)
@@ -200,6 +241,7 @@ export function CreateSimulation() {
   if (isLoading) {
     return <p>loading...</p>
   }
+
   return (
     <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px) items-start'>
       <div className='p-8 flex flex-col border-r gap-12' style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
@@ -323,6 +365,34 @@ export function CreateSimulation() {
         <hr className='h-px bg-zinc-600/10' />
 
         <div>
+          <h2 className='font-display text-2xl mb-6'>Lump sum payment</h2>
+
+          <div className='flex flex-col gap-2'>
+            {lumpSumPayments.map((lsp, key) => {
+              return (
+                <PaymentCard
+                  key={key}
+                  title='One-time payment on a specific date'
+                  subtitle='This will apply based on the payoff strategy chosen'
+                  decreaseButtonAction={() => addToLumpSumPayment(key, -25)}
+                  increaseButtonAction={() => addToLumpSumPayment(key, 25)}
+                  amount={lsp.amount}
+                  date={lsp.date}
+                  onDateChange={(val) => handleLumpSumPaymentDateChange(key, val)}
+                  onPaymentDelete={() => setLumpSumPayments((prev) => prev.filter((_, index) => index != key))}
+                />
+              )
+            })}
+
+            <Button variant='outline' className='py-5' onClick={addLumpSumPayment}>
+              Add a lump sum payment
+            </Button>
+          </div>
+        </div>
+
+        <hr className='h-px bg-zinc-600/10' />
+
+        <div>
           <h2 className='font-display text-2xl mb-6'>Extra monthly payment</h2>
 
           <div className='flex flex-col gap-2'>
@@ -342,37 +412,17 @@ export function CreateSimulation() {
 
             {extraPayments.map((ep, key) => {
               return (
-                <div key={key} className='card justify-between items-center'>
-                  <div className='flex flex-col'>
-                    <p className='text-sm text-zinc-400'>Additional amount on top of minimum</p>
-                    <p className='text-description'>Total monthly: {formatCurrency(totalMinPayment + ep.amount)}</p>
-                  </div>
-
-                  <div className='flex gap-6 items-center'>
-                    <button
-                      onClick={() => addToExtraPayment(key, -25)}
-                      className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
-                    >
-                      -
-                    </button>
-                    <div className='text-primary'>{formatCurrency(ep.amount)}</div>
-                    <button
-                      onClick={() => addToExtraPayment(key, 25)}
-                      className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'
-                    >
-                      +
-                    </button>
-
-                    <DatePicker value={ep.start_date} onChange={(val) => handleStartDateChange(key, val)} />
-
-                    <div
-                      onClick={() => setExtraPayments((prev) => prev.filter((_, index) => index != key))}
-                      className='flex justify-center items-center border border-red-500/50 p-1 text-xs text-red-500/50 cursor-pointer'
-                    >
-                      <X />
-                    </div>
-                  </div>
-                </div>
+                <PaymentCard
+                  key={key}
+                  title='Additional amount on top of minimum'
+                  subtitle={`Total monthly: ${formatCurrency(totalMinPayment + ep.amount)}`}
+                  decreaseButtonAction={() => addToExtraPayment(key, -25)}
+                  increaseButtonAction={() => addToExtraPayment(key, 25)}
+                  amount={ep.amount}
+                  date={ep.start_date}
+                  onDateChange={(val) => handleExtraPaymentDateChange(key, val)}
+                  onPaymentDelete={() => setExtraPayments((prev) => prev.filter((_, index) => index != key))}
+                />
               )
             })}
 

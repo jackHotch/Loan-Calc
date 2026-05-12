@@ -95,6 +95,7 @@ export class SimulationsService {
     let cascadeBonus = new Decimal(0);
     let monthCount = 0;
     let payoffOrderCounter = 1;
+    const appliedLumpSumIndices = new Set<number>();
 
     while (
       loanStates.some((s) => s.simulationBalance.gt(0)) &&
@@ -111,6 +112,24 @@ export class SimulationsService {
 
       let monthlyOverflow = new Decimal(0);
 
+      let lumpSumForMonth = new Decimal(0);
+      if (target) {
+        const targetPaymentDate = new Date(target.simulationStartdate);
+        targetPaymentDate.setMonth(targetPaymentDate.getMonth() + monthCount);
+
+        lumpSumPayments.forEach((lp, index) => {
+          if (appliedLumpSumIndices.has(index)) return;
+          const lpDate = new Date(lp.date);
+          if (
+            lpDate.getFullYear() === targetPaymentDate.getFullYear() &&
+            lpDate.getMonth() === targetPaymentDate.getMonth()
+          ) {
+            appliedLumpSumIndices.add(index);
+            lumpSumForMonth = lumpSumForMonth.plus(lp.amount);
+          }
+        });
+      }
+
       for (const loan of loanStates) {
         if (loan.simulationBalance.lte(0)) continue;
 
@@ -121,18 +140,6 @@ export class SimulationsService {
           extraPayments,
           paymentDate,
         ).plus(cascadeBonus);
-
-        const lumpSumForMonth = loan.extraPaymentTarget
-          ? lumpSumPayments
-              .filter((lp) => {
-                const lpDate = new Date(lp.date);
-                return (
-                  lpDate.getFullYear() === paymentDate.getFullYear() &&
-                  lpDate.getMonth() === paymentDate.getMonth()
-                );
-              })
-              .reduce((sum, lp) => sum.plus(lp.amount), new Decimal(0))
-          : new Decimal(0);
 
         let extraPaymentApplied: Decimal =
           loan.extraPaymentTarget === true
@@ -220,6 +227,11 @@ export class SimulationsService {
       [createdSimulation.id],
     );
 
+    await this.db.query(
+      `DELETE FROM simulation_lump_sum_payments WHERE simulation_id = $1`,
+      [createdSimulation.id],
+    );
+
     if (simulation.extra_payments?.length) {
       const epValues = simulation.extra_payments
         .map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`)
@@ -303,6 +315,11 @@ export class SimulationsService {
           FROM simulation_extra_payments ep
           WHERE ep.simulation_id = s.id
         ) AS extra_payments,
+        (
+          SELECT json_agg(lsp.* ORDER BY lsp.date)
+          FROM simulation_lump_sum_payments lsp
+          WHERE lsp.simulation_id = s.id
+        ) AS lump_sum_payments,
         json_agg(
           json_build_object(
             'id', sl.id,
@@ -385,13 +402,18 @@ export class SimulationsService {
     simulation: CreateSimulationDto,
   ) {
     const existing = await this.db.query(
-      `SELECT s.*, 
+      `SELECT s.*,
         ARRAY_AGG(sl.loan_id) AS loan_ids,
         (
           SELECT json_agg(ep.* ORDER BY ep.start_date)
           FROM simulation_extra_payments ep
           WHERE ep.simulation_id = s.id
-        ) AS extra_payments
+        ) AS extra_payments,
+        (
+          SELECT json_agg(lsp.* ORDER BY lsp.date)
+          FROM simulation_lump_sum_payments lsp
+          WHERE lsp.simulation_id = s.id
+        ) AS lump_sum_payments
       FROM simulations s
       JOIN simulation_loans sl ON sl.simulation_id = s.id
       WHERE s.id = $1 AND s.user_id = $2
@@ -407,6 +429,10 @@ export class SimulationsService {
       !this.sameExtraPayments(
         current.extra_payments,
         simulation.extra_payments,
+      ) ||
+      !this.sameLumpSumPayments(
+        current.lump_sum_payments,
+        simulation.lump_sum_payments,
       );
 
     await this.db.query(
@@ -439,6 +465,7 @@ export class SimulationsService {
         simulation.strategy_type,
         simulation.extra_payments,
         simulation.cascade,
+        simulation.lump_sum_payments,
       );
 
       await this.saveSimulation(userId, simulation, calculatedSimulation, {
@@ -469,6 +496,31 @@ export class SimulationsService {
           epParams,
         );
       }
+
+      await this.db.query(
+        `DELETE FROM simulation_lump_sum_payments WHERE simulation_id = $1`,
+        [simulationId],
+      );
+
+      if (simulation.lump_sum_payments?.length) {
+        const lspValues = simulation.lump_sum_payments
+          .map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`)
+          .join(', ');
+
+        const lspParams = [
+          simulationId,
+          ...simulation.lump_sum_payments.flatMap((lsp) => [
+            lsp.amount,
+            lsp.date,
+          ]),
+        ];
+
+        await this.db.query(
+          `INSERT INTO simulation_lump_sum_payments (simulation_id, amount, date)
+           VALUES ${lspValues}`,
+          lspParams,
+        );
+      }
     }
 
     return this.getSimulationComparison(userId, current.id);
@@ -490,6 +542,23 @@ export class SimulationsService {
         Number(ep.amount) === Number(sort(b)[i].amount) &&
         new Date(ep.start_date).getTime() ===
           new Date(sort(b)[i].start_date).getTime(),
+    );
+  }
+
+  sameLumpSumPayments(
+    a: { amount: number; date: Date }[],
+    b: { amount: number; date: Date }[],
+  ): boolean {
+    if (!a || !b) return a === b;
+    if (a.length !== b.length) return false;
+    const sort = (arr: { amount: number; date: Date }[]) =>
+      [...arr].sort(
+        (x, y) => new Date(x.date).getTime() - new Date(y.date).getTime(),
+      );
+    return sort(a).every(
+      (lsp, i) =>
+        Number(lsp.amount) === Number(sort(b)[i].amount) &&
+        new Date(lsp.date).getTime() === new Date(sort(b)[i].date).getTime(),
     );
   }
 
