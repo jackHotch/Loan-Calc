@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { CreateSimulationDto, LumpSumPaymentDto, StrategyType } from './dto/create-simulation.dto';
+import {
+  CreateSimulationDto,
+  LumpSumPaymentDto,
+  StrategyType,
+} from './dto/create-simulation.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { LoanDb } from 'src/lib/types/loan.types';
@@ -146,7 +150,9 @@ export class SimulationsService {
           .mul(monthlyRate)
           .toDecimalPlaces(2);
 
-        let totalPayment = new Decimal(loan.minimum_payment).plus(extraPaymentApplied);
+        let totalPayment = new Decimal(loan.minimum_payment).plus(
+          extraPaymentApplied,
+        );
 
         let monthlyPrincipalPaid = new Decimal(totalPayment)
           .minus(monthlyInterestPaid)
@@ -231,6 +237,26 @@ export class SimulationsService {
         `INSERT INTO simulation_extra_payments (simulation_id, amount, start_date)
          VALUES ${epValues}`,
         epParams,
+      );
+    }
+
+    if (simulation.lump_sum_payments?.length) {
+      const lspValues = simulation.lump_sum_payments
+        .map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`)
+        .join(', ');
+
+      const lspParams = [
+        createdSimulation.id,
+        ...simulation.lump_sum_payments.flatMap((lsp) => [
+          lsp.amount,
+          lsp.date,
+        ]),
+      ];
+
+      await this.db.query(
+        `INSERT INTO simulation_lump_sum_payments (simulation_id, amount, date)
+         VALUES ${lspValues}`,
+        lspParams,
       );
     }
 
