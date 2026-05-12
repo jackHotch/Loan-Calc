@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateSimulationDto, StrategyType } from './dto/create-simulation.dto';
+import { CreateSimulationDto, LumpSumPaymentDto, StrategyType } from './dto/create-simulation.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { LoanDb } from 'src/lib/types/loan.types';
@@ -25,6 +25,7 @@ export class SimulationsService {
       simulation.strategy_type,
       simulation.extra_payments,
       simulation.cascade,
+      simulation.lump_sum_payments,
     );
 
     const savedSimulation = await this.saveSimulation(
@@ -40,7 +41,7 @@ export class SimulationsService {
     extraPayments: { amount: number; start_date: Date }[],
     date: Date,
   ): Decimal {
-    const sorted = [...extraPayments]
+    const sorted = [...(extraPayments ?? [])]
       .filter((ep) => new Date(ep.start_date) <= date)
       .sort(
         (a, b) =>
@@ -53,8 +54,9 @@ export class SimulationsService {
   async runSimulation(
     loans: LoanDb[],
     strategy: StrategyType,
-    extraPayments: { amount: number; start_date: Date }[],
+    extraPayments: { amount: number; start_date: Date }[] = [],
     cascade: boolean,
+    lumpSumPayments: LumpSumPaymentDto[] = [],
   ) {
     const payoffOrder = strategy.includes('Interest')
       ? strategy.includes('Avalanche')
@@ -116,9 +118,21 @@ export class SimulationsService {
           paymentDate,
         ).plus(cascadeBonus);
 
+        const lumpSumForMonth = loan.extraPaymentTarget
+          ? lumpSumPayments
+              .filter((lp) => {
+                const lpDate = new Date(lp.date);
+                return (
+                  lpDate.getFullYear() === paymentDate.getFullYear() &&
+                  lpDate.getMonth() === paymentDate.getMonth()
+                );
+              })
+              .reduce((sum, lp) => sum.plus(lp.amount), new Decimal(0))
+          : new Decimal(0);
+
         let extraPaymentApplied: Decimal =
           loan.extraPaymentTarget === true
-            ? extraPaymentPool.plus(monthlyOverflow)
+            ? extraPaymentPool.plus(monthlyOverflow).plus(lumpSumForMonth)
             : monthlyOverflow;
 
         let remainingPrincipal = new Decimal(loan.simulationBalance);
