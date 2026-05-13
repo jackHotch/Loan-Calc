@@ -26,6 +26,7 @@ import { DatePicker } from '@/components/loan-table/date-picker'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '../ui/checkbox'
 import { PaymentCard } from './payment-card'
+import { Seperator } from '../seperator'
 
 export function CreateSimulation() {
   const router = useRouter()
@@ -284,7 +285,7 @@ export function CreateSimulation() {
           </div>
         </div>
 
-        <hr className='h-px bg-zinc-600/10' />
+        <Seperator />
 
         <div className='flex flex-col gap-2'>
           <h2 className='font-display text-2xl mb-4'>Select loans to include</h2>
@@ -338,7 +339,7 @@ export function CreateSimulation() {
           </p>
         </div>
 
-        <hr className='h-px bg-zinc-600/10' />
+        <Seperator />
 
         <div>
           <h2 className='font-display text-2xl mb-6'>Choose your payoff strategy</h2>
@@ -362,7 +363,7 @@ export function CreateSimulation() {
           </div>
         </div>
 
-        <hr className='h-px bg-zinc-600/10' />
+        <Seperator />
 
         <div>
           <h2 className='font-display text-2xl mb-6'>Lump sum payment</h2>
@@ -390,7 +391,7 @@ export function CreateSimulation() {
           </div>
         </div>
 
-        <hr className='h-px bg-zinc-600/10' />
+        <Seperator />
 
         <div>
           <h2 className='font-display text-2xl mb-6'>Extra monthly payment</h2>

@@ -173,9 +173,12 @@ export class LoansService {
     return loan ?? null;
   }
 
-  async getBaselineSummary(userId: BigInt, loanIds: number[]) {
+  async getBaselineSummary(userId: BigInt, loanIds?: number[]) {
+    const filterByIds = loanIds && loanIds.length > 0;
+
     const loanDetails = await this.db.query(
-      `SELECT
+      filterByIds
+        ? `SELECT
         l.id AS loan_id,
         l.name,
         l.lender,
@@ -184,8 +187,17 @@ export class LoansService {
         l.minimum_payment
       FROM loans l
       WHERE l.id = ANY($1)
-        AND l.user_id = $2`,
-      [loanIds, userId],
+        AND l.user_id = $2`
+        : `SELECT
+        l.id AS loan_id,
+        l.name,
+        l.lender,
+        l.starting_principal,
+        l.interest_rate,
+        l.minimum_payment
+      FROM loans l
+      WHERE l.user_id = $1`,
+      filterByIds ? [loanIds, userId] : [userId],
     );
 
     const loanDetailsMap = Object.fromEntries(
@@ -202,7 +214,8 @@ export class LoansService {
     );
 
     const totals = await this.db.query(
-      `SELECT
+      filterByIds
+        ? `SELECT
         l.id AS loan_id,
         SUM(ps.principal_paid) AS principal_paid,
         SUM(ps.interest_paid) AS interest_paid,
@@ -214,8 +227,20 @@ export class LoansService {
       WHERE ps.loan_id = ANY($1)
         AND ps.simulation_loan_id IS NULL
         AND l.user_id = $2
+      GROUP BY l.id`
+        : `SELECT
+        l.id AS loan_id,
+        SUM(ps.principal_paid) AS principal_paid,
+        SUM(ps.interest_paid) AS interest_paid,
+        SUM(ps.total_payment) AS total_paid,
+        COUNT(*) AS payment_count,
+        MAX(ps.payment_date) AS payoff_date
+      FROM payment_schedules ps
+      JOIN loans l ON ps.loan_id = l.id
+      WHERE ps.simulation_loan_id IS NULL
+        AND l.user_id = $1
       GROUP BY l.id`,
-      [loanIds, userId],
+      filterByIds ? [loanIds, userId] : [userId],
     );
 
     const now = new Date();
@@ -265,7 +290,7 @@ export class LoansService {
       { total_interest_paid: 0, total_paid: 0, payoff_date: null },
     );
 
-    return { perLoan, totals: totalsRollup };
+    return { totals: totalsRollup, perLoan };
   }
 
   async update(userId: BigInt, loanId: BigInt, loan: UpdateLoanDto) {

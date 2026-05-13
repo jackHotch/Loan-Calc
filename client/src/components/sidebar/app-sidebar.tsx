@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { DollarSign, Calculator, Layers, ArrowLeftRight } from 'lucide-react'
+import { DollarSign, Calculator, Layers, LayoutDashboard } from 'lucide-react'
 
 import { NavList } from '@/components/sidebar/nav-list'
 import { NavUser } from '@/components/sidebar/nav-user'
@@ -25,6 +25,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const data = {
     user: user,
     navList: [
+      {
+        title: 'Dashboard',
+        url: '/dashboard',
+        icon: LayoutDashboard,
+      },
       {
         title: 'Loans',
         url: '/loans',

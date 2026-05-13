@@ -30,8 +30,8 @@ export class LoansController {
   }
 
   @Post('/summary')
-  summary(@User() userId: BigInt, @Body() body: { loan_ids: number[] }) {
-    return this.loansService.getBaselineSummary(userId, body.loan_ids);
+  summary(@User() userId: BigInt, @Body() body?: { loan_ids?: number[] }) {
+    return this.loansService.getBaselineSummary(userId, body?.loan_ids);
   }
 
   @Get(':id')
