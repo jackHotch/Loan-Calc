@@ -17,12 +17,11 @@ import {
   useSimulationComparison,
   useUpdateSimulation,
 } from '@/lib/api/simulations'
-import { ArrowRight, Save, X } from 'lucide-react'
+import { ArrowRight, Save } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
 import { ExtraPayment, LumpSumPayment, SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Progress } from '@/components/ui/progress'
-import { DatePicker } from '@/components/loan-table/date-picker'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '../ui/checkbox'
 import { PaymentCard } from './payment-card'

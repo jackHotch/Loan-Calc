@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAxios } from './useAxios'
-import { LoanDb } from '@/constants/schema'
+import { LoanDb, LoanProgress } from '@/constants/schema'
 import { ApiError } from './axios'
 
 export const useLoans = () => {
@@ -67,6 +67,18 @@ export const useUpdateLoan = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] })
       queryClient.invalidateQueries({ queryKey: ['loans', variables.id] })
+    },
+  })
+}
+
+export const useLoanProgress = (params?: { loan_ids?: number[] }) => {
+  const axios = useAxios()
+
+  return useQuery<LoanProgress, ApiError>({
+    queryKey: ['loans', 'progress', params],
+    queryFn: async () => {
+      const response = await axios.get<LoanProgress>('/loans/progress', { params })
+      return response.data
     },
   })
 }
