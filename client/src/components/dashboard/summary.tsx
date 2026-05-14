@@ -1,23 +1,33 @@
-import { TrendingDown } from 'lucide-react'
+'use client'
+
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
 import { Seperator } from '../seperator'
+import { useLoanProgress } from '@/lib/api/loans'
+import { formatDate } from '@/lib/utils'
 
 export const Summary = () => {
-  const totalDebt = 80250
-  const paidOff = 22500
-  const remaining = totalDebt - paidOff
+  const { data: currentLoanProgress } = useLoanProgress()
+
+  const totalDebt = currentLoanProgress?.summary.total_paid + currentLoanProgress?.summary.total_remaining
+  const paidOff = currentLoanProgress?.summary.total_paid
+  const remaining = currentLoanProgress?.summary.total_remaining
   const percentPaid = (paidOff / totalDebt) * 100
+  const percentChange = currentLoanProgress?.summary.monthly_pct_change
+  const monthsTilPayoff = currentLoanProgress?.summary.months_to_payoff
+  const payoffDate = currentLoanProgress?.summary.payoff_date
+  const numberOfLoans = currentLoanProgress?.per_loan.length
 
   return (
     <Card>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <CardTitle className='text-base font-medium'>Debt Progress</CardTitle>
-          <Badge>
-            <TrendingDown data-icon='inline-start' />
-            9%
+          <CardTitle className='text-base font-medium'>Current Progress</CardTitle>
+          <Badge className={percentChange >= 0 && 'bg-red-500/70'}>
+            {percentChange >= 0 ? <TrendingUp data-icon='inline-start' /> : <TrendingDown data-icon='inline-start' />}
+            {percentChange}%
           </Badge>
         </div>
       </CardHeader>
@@ -26,15 +36,18 @@ export const Summary = () => {
           <div className='flex items-end justify-between'>
             <div>
               <p className='text-muted-foreground text-xs'>Total Paid</p>
-              <p className='text-2xl font-bold @[200px]:text-3xl'>${paidOff.toLocaleString()}</p>
+              <p className='text-2xl font-bold @[200px]:text-3xl'>${paidOff?.toLocaleString()}</p>
             </div>
             <div className='text-right'>
               <p className='text-muted-foreground text-xs'>Remaining</p>
-              <p className='text-lg font-semibold @[200px]:text-xl'>${remaining.toLocaleString()}</p>
+              <p className='text-lg font-semibold @[200px]:text-xl'>${remaining?.toLocaleString()}</p>
             </div>
           </div>
           <Progress value={percentPaid} className='h-2' />
-          <p className='text-muted-foreground text-xs'>{percentPaid.toFixed(1)}% of total debt paid off</p>
+          <div className='flex items-center justify-between'>
+            <span className='text-muted-foreground text-xs'>{percentPaid?.toFixed(1)}% of total debt paid off</span>
+            <span className='text-muted-foreground text-xs'>Payoff on {formatDate(new Date(payoffDate))}</span>
+          </div>
         </div>
 
         <Seperator />
@@ -43,11 +56,11 @@ export const Summary = () => {
           <div className='grid grid-cols-2 gap-3 text-center'>
             <div className='rounded-lg bg-muted/50 p-2'>
               <p className='text-muted-foreground text-xs'>Active Loans</p>
-              <p className='text-xl font-bold'>12</p>
+              <p className='text-xl font-bold'>{numberOfLoans}</p>
             </div>
             <div className='rounded-lg bg-muted/50 p-2'>
               <p className='text-muted-foreground text-xs'>Months til Payoff</p>
-              <p className='text-xl font-bold'>20</p>
+              <p className='text-xl font-bold'>{monthsTilPayoff}</p>
             </div>
           </div>
         </div>

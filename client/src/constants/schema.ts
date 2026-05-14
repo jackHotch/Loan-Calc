@@ -190,6 +190,33 @@ export const UserSchema = z.object({
   email: z.string(),
 })
 
+export const LoanProgressSummarySchema = z.object({
+  total_paid: z.number(),
+  total_remaining: z.number(),
+  active_loans: z.number().int(),
+  payoff_date: z.string(),
+  months_to_payoff: z.number().int(),
+  monthly_pct_change: z.number(),
+})
+
+export const LoanProgressPerLoanSchema = z.object({
+  loan_id: z.string(),
+  name: z.string(),
+  starting_principal: z.number(),
+  current_principal: z.number(),
+  total_principal_paid: z.number(),
+  total_interest_paid: z.number(),
+  total_paid: z.number(),
+  payoff_date: z.string(),
+  months_to_payoff: z.number().int(),
+  is_active: z.boolean(),
+})
+
+export const LoanProgressSchema = z.object({
+  summary: LoanProgressSummarySchema,
+  per_loan: z.array(LoanProgressPerLoanSchema),
+})
+
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
@@ -205,3 +232,6 @@ export type SimulationSummary = z.infer<typeof SimulationSummarySchema>
 export type ActiveSimulation = z.infer<typeof ActiveSimulationSchema>
 export type DeleteSimulation = z.infer<typeof DeleteSimulationSchema>
 export type User = z.infer<typeof UserSchema>
+export type LoanProgressSummary = z.infer<typeof LoanProgressSummarySchema>
+export type LoanProgressPerLoan = z.infer<typeof LoanProgressPerLoanSchema>
+export type LoanProgress = z.infer<typeof LoanProgressSchema>
