@@ -417,6 +417,19 @@ export class LoansService {
       params,
     );
 
+    const nextPaymentRows = await this.db.query(
+      `SELECT COALESCE(SUM(next_payment.total_payment), 0) AS next_monthly_payment
+      FROM loans l
+      LEFT JOIN LATERAL (
+        SELECT total_payment
+        FROM payment_schedules
+        WHERE loan_id = l.id AND is_actual = false AND simulation_loan_id IS NULL
+        ORDER BY payment_number ASC LIMIT 1
+      ) next_payment ON true
+      WHERE l.user_id = ${userParam} ${idFilter}`,
+      params,
+    );
+
     const now = new Date();
 
     const perLoan = perLoanRows.map((row) => {
@@ -478,6 +491,10 @@ export class LoansService {
       ? currRemaining.minus(prevRemaining).dividedBy(prevRemaining).times(100).toDecimalPlaces(2).toNumber()
       : null;
 
+    const nextMonthlyPayment = new Decimal(
+      nextPaymentRows[0]?.next_monthly_payment ?? 0,
+    ).toDecimalPlaces(2).toNumber();
+
     return {
       summary: {
         total_paid: new Decimal(totalPaid).toDecimalPlaces(2).toNumber(),
@@ -486,6 +503,7 @@ export class LoansService {
         payoff_date: latestPayoffDate,
         months_to_payoff: monthsToPayoff,
         monthly_pct_change: monthlyPctChange,
+        next_monthly_payment: nextMonthlyPayment,
       },
       per_loan: perLoan,
     };

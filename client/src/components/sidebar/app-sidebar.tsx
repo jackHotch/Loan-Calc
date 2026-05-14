@@ -26,8 +26,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     user: user,
     navList: [
       {
-        title: 'Dashboard',
-        url: '/dashboard',
+        title: 'Overview',
+        url: '/overview',
         icon: LayoutDashboard,
       },
       {

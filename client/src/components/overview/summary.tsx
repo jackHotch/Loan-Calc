@@ -6,7 +6,7 @@ import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
 import { Seperator } from '../seperator'
 import { useLoanProgress } from '@/lib/api/loans'
-import { formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 export const Summary = () => {
   const { data: currentLoanProgress } = useLoanProgress()
@@ -18,7 +18,8 @@ export const Summary = () => {
   const percentChange = currentLoanProgress?.summary.monthly_pct_change
   const monthsTilPayoff = currentLoanProgress?.summary.months_to_payoff
   const payoffDate = currentLoanProgress?.summary.payoff_date
-  const numberOfLoans = currentLoanProgress?.per_loan.length
+  const numberOfLoans = currentLoanProgress?.summary.active_loans
+  const nextMonthlyPayment = currentLoanProgress?.summary.next_monthly_payment
 
   return (
     <Card>
@@ -53,7 +54,7 @@ export const Summary = () => {
         <Seperator />
 
         <div className='pt-3'>
-          <div className='grid grid-cols-2 gap-3 text-center'>
+          <div className='grid grid-cols-3 gap-3 text-center'>
             <div className='rounded-lg bg-muted/50 p-2'>
               <p className='text-muted-foreground text-xs'>Active Loans</p>
               <p className='text-xl font-bold'>{numberOfLoans}</p>
@@ -61,6 +62,10 @@ export const Summary = () => {
             <div className='rounded-lg bg-muted/50 p-2'>
               <p className='text-muted-foreground text-xs'>Months til Payoff</p>
               <p className='text-xl font-bold'>{monthsTilPayoff}</p>
+            </div>
+            <div className='rounded-lg bg-muted/50 p-2'>
+              <p className='text-muted-foreground text-xs'>Next Payment</p>
+              <p className='text-xl font-bold'>{formatCurrency(nextMonthlyPayment)}</p>
             </div>
           </div>
         </div>

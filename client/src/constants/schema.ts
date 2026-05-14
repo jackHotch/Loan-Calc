@@ -197,6 +197,7 @@ export const LoanProgressSummarySchema = z.object({
   payoff_date: z.string(),
   months_to_payoff: z.number().int(),
   monthly_pct_change: z.number(),
+  next_monthly_payment: z.number(),
 })
 
 export const LoanProgressPerLoanSchema = z.object({
