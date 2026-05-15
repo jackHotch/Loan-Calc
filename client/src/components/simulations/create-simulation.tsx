@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '../ui/checkbox'
 import { PaymentCard } from './payment-card'
 import { Seperator } from '../seperator'
+import { SimulationChartModal } from './simulation-chart-modal'
 
 export function CreateSimulation() {
   const router = useRouter()
@@ -567,6 +568,8 @@ export function CreateSimulation() {
                 <p className='text-sm'>{formatCurrency(currentSimulationComparison.baseline.total_paid)}</p>
               </div>
             </div>
+
+            {existingSimulation && <SimulationChartModal simulation={existingSimulation} loans={loans ?? []} />}
 
             {activeSimulation.active_simulation_id != simulationId && (
               <Button
