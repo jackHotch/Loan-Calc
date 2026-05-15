@@ -1,7 +1,7 @@
 'use client'
 
 import { Summary } from '@/components/overview/summary'
-import { LoanProgressChart } from '@/components/overview/loan-progress-chart'
+import { LoanProgressChart } from '@/components/loan-progress-chart'
 import { PaymentBreakdown } from '@/components/overview/payment-breakdown'
 import { useLoans } from '@/lib/api/loans'
 

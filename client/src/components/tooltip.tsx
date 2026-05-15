@@ -11,7 +11,7 @@ export function ToolTip({ active, payload, label }: any) {
   const sorted = [...payload].sort((a: { value?: number }, b: { value?: number }) => (b.value ?? 0) - (a.value ?? 0))
 
   return (
-    <div className='grid min-w-40 gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl'>
+    <div className='grid min-w-40 gap-1.5 border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl'>
       <p className='font-medium'>{title}</p>
       {sorted.map((item: { name?: string; value?: number; color?: string }) => (
         <div key={item.name} className='flex items-center gap-2'>

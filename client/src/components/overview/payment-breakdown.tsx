@@ -54,7 +54,7 @@ export function PaymentBreakdown({ loans }: { loans: LoanDb[] }) {
   }
 
   return (
-    <Card className='flex flex-1 flex-col'>
+    <Card className='flex flex-1 flex-col rounded-none'>
       <CardHeader className='pb-2'>
         <CardTitle className='text-base font-medium'>Next Payment Breakdown</CardTitle>
       </CardHeader>

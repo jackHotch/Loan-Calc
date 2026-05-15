@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
 import { useDeleteLoan } from '@/lib/api/loans'
 import { DeleteLoans } from './delete-loans'
@@ -42,6 +42,8 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
   const deleteLoan = useDeleteLoan()
+  const deleteLoanRef = useRef(deleteLoan)
+  deleteLoanRef.current = deleteLoan
 
   useEffect(() => {
     if (initialData) {
@@ -49,15 +51,15 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
     }
   }, [initialData])
 
-  const handleDeleteLoan = async (loanId: string) => {
+  const handleDeleteLoan = useCallback(async (loanId: string) => {
     try {
-      await deleteLoan.mutateAsync(Number(loanId))
+      await deleteLoanRef.current.mutateAsync(Number(loanId))
       toast.success('Loan has been successfully deleted')
     } catch (error) {
       console.error('Failed to delete loan:', error)
       toast.error('Failed to delete loan')
     }
-  }
+  }, [])
 
   const handleDeleteSelected = async () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows
@@ -73,7 +75,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
     }
   }
 
-  const columns: ColumnDef<LoanTableSchema>[] = [
+  const columns = useMemo<ColumnDef<LoanTableSchema>[]>(() => [
     {
       id: 'select',
       header: ({ table }) => (
@@ -227,7 +229,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       },
       enableHiding: false,
     },
-  ]
+  ], [handleDeleteLoan])
 
   const table = useReactTable({
     data,
@@ -312,8 +314,8 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
             <TableBody>
               {table.getRowModel().rows?.length ? (
                 <>
-                  {table.getRowModel().rows.map((row, key) => (
-                    <TableRow key={key} data-state={row.getIsSelected() && 'selected'}>
+                  {table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                       ))}

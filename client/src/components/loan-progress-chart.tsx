@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import { addMonths, format, startOfMonth } from 'date-fns'
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { LoanDb } from '@/constants/schema'
-import { useLoans } from '@/lib/api/loans'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartConfig, ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip } from '@/components/ui/chart'
 import { ToolTip } from './tooltip'
@@ -81,7 +80,7 @@ export function LoanProgressChart({ loans }: { loans: LoanDb[] }) {
   }
 
   return (
-    <Card className='flex flex-1 flex-col'>
+    <Card className='flex flex-1 flex-col rounded-none'>
       <CardHeader className='pb-2'>
         <CardTitle className='text-base font-medium'>Loan Payoff Projection</CardTitle>
       </CardHeader>
