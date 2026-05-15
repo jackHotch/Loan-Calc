@@ -22,7 +22,7 @@ export const Summary = () => {
   const nextMonthlyPayment = currentLoanProgress?.summary.next_monthly_payment
 
   return (
-    <Card>
+    <Card className='rounded-none'>
       <CardHeader>
         <div className='flex items-center justify-between'>
           <CardTitle className='text-base font-medium'>Current Progress</CardTitle>
