@@ -63,13 +63,13 @@ export function SimulationChartModal({ simulation, loans }: Props) {
           View Chart
         </Button>
       </DrawerTrigger>
-      <DrawerContent className='flex flex-col px-4 pb-6'>
-        <DrawerHeader className='pb-2'>
+      <DrawerContent className='flex flex-col px-4 pb-4' style={{ height: '90vh', maxHeight: '90vh' }}>
+        <DrawerHeader className='pb-2 shrink-0'>
           <DrawerTitle>Loan Payoff Projection — {simulation.name}</DrawerTitle>
         </DrawerHeader>
-        <div className='flex-1 min-h-0' style={{ height: '55vh' }}>
-          <ChartContainer config={chartConfig} className='h-full w-full'>
-            <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+        <div className='flex-1 min-h-0'>
+          <ChartContainer config={chartConfig} className='aspect-auto h-full w-full'>
+            <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <CartesianGrid vertical={false} strokeOpacity={0.3} />
               <XAxis
                 dataKey='date'
