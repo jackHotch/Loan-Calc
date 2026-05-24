@@ -64,7 +64,11 @@ export class SimulationsService {
   ) {
     const payoffOrder = strategy.includes('Interest')
       ? strategy.includes('Avalanche')
-        ? loans?.sort((a, b) => b.interest_rate - a.interest_rate)
+        ? loans?.sort((a, b) =>
+            b.interest_rate !== a.interest_rate
+              ? b.interest_rate - a.interest_rate
+              : b.current_principal - a.current_principal,
+          )
         : loans?.sort((a, b) => a.interest_rate - b.interest_rate)
       : strategy.includes('Avalanche')
         ? loans?.sort((a, b) => b.current_principal - a.current_principal)
