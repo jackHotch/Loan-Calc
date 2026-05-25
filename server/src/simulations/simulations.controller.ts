@@ -54,6 +54,16 @@ export class SimulationsController {
     );
   }
 
+  @Post('/deactivate')
+  deactivate(@User() userId: BigInt) {
+    return this.simulationsService.deactivateSimulation(userId);
+  }
+
+  @Post('/active/sync')
+  sync(@User() userId: BigInt) {
+    return this.simulationsService.syncActiveSimulation(userId);
+  }
+
   @Post('/:id/active')
   setAsActive(@User() userId: BigInt, @Param('id') id: string) {
     return this.simulationsService.setAsActive(userId, BigInt(id));

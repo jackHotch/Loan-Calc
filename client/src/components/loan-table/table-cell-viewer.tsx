@@ -12,7 +12,7 @@ import {
   DrawerClose,
 } from '../ui/drawer'
 import { loanFormSchema, LoanTable } from '@/constants/schema'
-import { ReactNode, useState } from 'react'
+import { ReactNode, useRef, useState } from 'react'
 import { DatePicker } from './date-picker'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,14 +26,17 @@ import { useIsMobile } from '@/hooks/use-mobile'
 export function TableCellViewer({
   data,
   isNewLoan = false,
+  isSimulationControlled = false,
   children,
 }: {
   data?: LoanTable
   isNewLoan?: boolean
+  isSimulationControlled?: boolean
   children: ReactNode
 }) {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const formKey = useRef(0)
   const createLoan = useCreateLoan()
   const updateLoan = useUpdateLoan()
   const description = isNewLoan
@@ -58,25 +61,30 @@ export function TableCellViewer({
   })
 
   const handleSubmit = async () => {
-    const formatedLoan = formToDb(form.getValues())
-    if (isNewLoan) {
-      try {
+    try {
+      // When the simulation controls extra payment, always use the original loan values
+      // for those fields so they can never be overridden from this form.
+      if (isSimulationControlled) {
+        const original = tableToForm(data)
+        form.setValue('extra_payment', original?.extra_payment ?? null)
+        form.setValue('extra_payment_start_date', original?.extra_payment_start_date ?? null)
+      }
+
+      const formatedLoan = formToDb(form.getValues())
+
+      if (isNewLoan) {
         await createLoan.mutateAsync(formatedLoan)
         form.reset()
         setDrawerOpen(false)
         toast.success('Loan created successfully!')
-      } catch (error: any) {
-        toast.error('Unable to create loan')
-      }
-    } else {
-      try {
+      } else {
         await updateLoan.mutateAsync({ id: form.getValues('id'), data: formatedLoan })
         form.reset()
         setDrawerOpen(false)
         toast.success('Loan updated successfully!')
-      } catch (error: any) {
-        toast.error('Unable to update loan')
       }
+    } catch (error: any) {
+      toast.error('Unable to save loan')
     }
   }
 
@@ -84,10 +92,13 @@ export function TableCellViewer({
     <Drawer
       open={drawerOpen}
       onOpenChange={(open) => {
-        setDrawerOpen(open)
-        if (!open) {
+        if (open) {
+          formKey.current += 1
+          if (!isNewLoan) form.reset(tableToForm(data))
+        } else {
           form.reset()
         }
+        setDrawerOpen(open)
       }}
       direction={isMobile ? 'bottom' : 'right'}
     >
@@ -98,7 +109,7 @@ export function TableCellViewer({
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
         <div className='flex flex-col gap-4 px-4 text-sm'>
-          <form className='flex flex-col gap-4'>
+          <form key={formKey.current} className='flex flex-col gap-4'>
             <div className='flex flex-col gap-3'>
               <Label htmlFor='name'>Loan Name</Label>
               <Input
@@ -166,12 +177,16 @@ export function TableCellViewer({
                 />
               </div>
             </div>
+            {isSimulationControlled && (
+              <p className='text-xs text-amber-500'>Extra payment is managed by the active simulation.</p>
+            )}
             <div className='grid grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='extra_payment'>Extra Payment</Label>
                 <CurrencyInput
                   defaultValue={form.getValues('extra_payment')}
                   onChange={(val) => form.setValue('extra_payment', val)}
+                  disabled={isSimulationControlled}
                 />
               </div>
               <div className='flex flex-col gap-3'>
@@ -179,6 +194,7 @@ export function TableCellViewer({
                 <DatePicker
                   value={form.watch('extra_payment_start_date')}
                   onChange={(val) => form.setValue('extra_payment_start_date', val)}
+                  disabled={isSimulationControlled}
                 />
               </div>
             </div>

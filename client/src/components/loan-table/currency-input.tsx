@@ -2,7 +2,15 @@ import { formatCurrency } from '@/lib/utils'
 import { Input } from '../ui/input'
 import { useState } from 'react'
 
-export function CurrencyInput({ defaultValue, onChange }: { defaultValue: number; onChange: (value: number) => void }) {
+export function CurrencyInput({
+  defaultValue,
+  onChange,
+  disabled = false,
+}: {
+  defaultValue: number
+  onChange: (value: number) => void
+  disabled?: boolean
+}) {
   const [displayValue, setDisplayValue] = useState(defaultValue ? formatCurrency(defaultValue).replace('$', '') : '')
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,6 +54,7 @@ export function CurrencyInput({ defaultValue, onChange }: { defaultValue: number
         onFocus={handleFocus}
         className='pl-7'
         placeholder='0.00'
+        disabled={disabled}
       />
     </div>
   )

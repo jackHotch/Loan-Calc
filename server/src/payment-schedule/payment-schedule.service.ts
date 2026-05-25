@@ -250,6 +250,17 @@ export class PaymentScheduleService {
     );
   }
 
+  async recalculateScheduleForLoan(loanId: BigInt) {
+    const rows = await this.db.query(
+      `SELECT id, user_id, name, lender, starting_principal, interest_rate, minimum_payment,
+              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
+       FROM loans WHERE id = $1`,
+      [loanId],
+    );
+    if (!rows[0]) return;
+    await this.generateScheduleForExistingLoan(rows[0] as any);
+  }
+
   async processAllPendingPayments(loanId?: BigInt) {
     const today = new Date();
     let loanIdCondition = ``;

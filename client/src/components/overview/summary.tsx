@@ -6,9 +6,10 @@ import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
 import { Seperator } from '../seperator'
 import { useLoanProgress } from '@/lib/api/loans'
+import { SimulationSummary } from '@/constants/schema'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-export const Summary = () => {
+export const Summary = ({ activeSim }: { activeSim?: SimulationSummary | null }) => {
   const { data: currentLoanProgress } = useLoanProgress()
 
   const totalDebt = currentLoanProgress?.summary.total_paid + currentLoanProgress?.summary.total_remaining
@@ -16,16 +17,26 @@ export const Summary = () => {
   const remaining = currentLoanProgress?.summary.total_remaining
   const percentPaid = (paidOff / totalDebt) * 100
   const percentChange = currentLoanProgress?.summary.monthly_pct_change
-  const monthsTilPayoff = currentLoanProgress?.summary.months_to_payoff
-  const payoffDate = currentLoanProgress?.summary.payoff_date
   const numberOfLoans = currentLoanProgress?.summary.active_loans
   const nextMonthlyPayment = currentLoanProgress?.summary.next_monthly_payment
+
+  // When a simulation is active, use its projected payoff stats
+  const monthsTilPayoff = activeSim?.totals.months_til_payoff ?? currentLoanProgress?.summary.months_to_payoff
+  const payoffDate = activeSim?.totals.payoff_date ?? currentLoanProgress?.summary.payoff_date
 
   return (
     <Card className='rounded-none'>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <CardTitle className='text-base font-medium'>Current Progress</CardTitle>
+          <div className='flex flex-col gap-1'>
+            <CardTitle className='text-base font-medium'>Current Progress</CardTitle>
+            {activeSim && (
+              <div className='flex items-center gap-1.5 text-xs text-primary'>
+                <span className='inline-block h-1.5 w-1.5 rounded-full bg-primary' />
+                Active Simulation: <span className='font-medium'>{activeSim.simulation.name}</span>
+              </div>
+            )}
+          </div>
           <Badge className={percentChange >= 0 && 'bg-red-500/70'}>
             {percentChange >= 0 ? <TrendingUp data-icon='inline-start' /> : <TrendingDown data-icon='inline-start' />}
             {percentChange}%
@@ -47,7 +58,9 @@ export const Summary = () => {
           <Progress value={percentPaid} className='h-2' />
           <div className='flex items-center justify-between'>
             <span className='text-muted-foreground text-xs'>{percentPaid?.toFixed(1)}% of total debt paid off</span>
-            <span className='text-muted-foreground text-xs'>Payoff on {formatDate(new Date(payoffDate))}</span>
+            <span className='text-muted-foreground text-xs'>
+              {activeSim ? 'Simulated payoff' : 'Payoff'} on {formatDate(new Date(payoffDate))}
+            </span>
           </div>
         </div>
 
@@ -60,7 +73,7 @@ export const Summary = () => {
               <p className='text-xl font-bold'>{numberOfLoans}</p>
             </div>
             <div className='rounded-lg bg-muted/50 p-2'>
-              <p className='text-muted-foreground text-xs'>Months til Payoff</p>
+              <p className='text-muted-foreground text-xs'>{activeSim ? 'Sim Months til Payoff' : 'Months til Payoff'}</p>
               <p className='text-xl font-bold'>{monthsTilPayoff}</p>
             </div>
             <div className='rounded-lg bg-muted/50 p-2'>
