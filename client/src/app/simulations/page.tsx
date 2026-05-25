@@ -17,6 +17,7 @@ import { StrategyType } from '@/constants/schema'
 import {
   useActiveSimulation,
   useAllSimulationSummaries,
+  useDeactivateSimulation,
   useDeleteSimulation,
   useSetActiveSimulation,
 } from '@/lib/api/simulations'
@@ -37,6 +38,7 @@ export default function Simulations() {
   ]
   const { data: activeSimulation } = useActiveSimulation()
   const setActiveSimulation = useSetActiveSimulation()
+  const deactivateSimulation = useDeactivateSimulation()
   const deleteSimulation = useDeleteSimulation()
 
   const sortDefaults: Record<string, boolean> = {
@@ -198,15 +200,19 @@ export default function Simulations() {
                   <div className='flex gap-2'>
                     <Button
                       variant='outline'
-                      onClick={() => (!isActiveSimulation ? setActiveSimulation.mutateAsync(sim.simulation.id) : null)}
+                      onClick={() =>
+                        isActiveSimulation
+                          ? deactivateSimulation.mutateAsync()
+                          : setActiveSimulation.mutateAsync(sim.simulation.id)
+                      }
                       className={cn(
                         'uppercase text-xs',
                         isActiveSimulation
-                          ? 'border-primary text-primary bg-primary/8 hover:bg-primary/8 hover:border-primary hover:text-primary cursor-default'
-                          : ' hover:text-primary',
+                          ? 'border-primary text-primary bg-primary/8 hover:bg-destructive/20 hover:border-destructive/60 hover:text-destructive'
+                          : 'hover:text-primary',
                       )}
                     >
-                      {isActiveSimulation ? 'Active' : 'Set Active'}
+                      {isActiveSimulation ? 'Deactivate' : 'Set Active'}
                     </Button>
                     <Button
                       variant='outline'

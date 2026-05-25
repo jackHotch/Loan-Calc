@@ -19,10 +19,12 @@ export function DatePicker({
   value: externalDate,
   onChange,
   className,
+  disabled = false,
 }: {
   value?: Date
   onChange?: (date: Date | undefined) => void
   className?: CSSProperties
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState<Date | undefined>(externalDate)
@@ -36,6 +38,7 @@ export function DatePicker({
           id='date-required'
           value={value}
           placeholder='mm / dd / yyyy'
+          disabled={disabled}
           onChange={(e) => {
             const date = new Date(e.target.value)
             setValue(e.target.value)
@@ -55,7 +58,7 @@ export function DatePicker({
         <InputGroupAddon align='inline-end'>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <InputGroupButton id='date-picker' variant='ghost' size='icon-xs' aria-label='Select date'>
+              <InputGroupButton id='date-picker' variant='ghost' size='icon-xs' aria-label='Select date' disabled={disabled}>
                 <CalendarIcon />
                 <span className='sr-only'>Select date</span>
               </InputGroupButton>

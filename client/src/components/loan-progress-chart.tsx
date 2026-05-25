@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { addMonths, format, startOfMonth } from 'date-fns'
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
-import { LoanDb } from '@/constants/schema'
+import { LoanDb, PerLoan, Simulation } from '@/constants/schema'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartConfig, ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip } from '@/components/ui/chart'
 import { ToolTip } from './tooltip'
@@ -38,26 +38,70 @@ function buildAmortizationSeries(loan: LoanDb): { date: string; remaining: numbe
   return points
 }
 
-export function LoanProgressChart({ loans }: { loans: LoanDb[] }) {
+function buildSimulationChartData(
+  simulation: Simulation,
+  perLoan: PerLoan[],
+): { data: Record<string, number | string>[]; loanNames: string[] } {
+  const nameMap = new Map(perLoan.map((pl) => [String(pl.loan_id), pl.name ?? `Loan ${pl.loan_id}`]))
+  const dateMap = new Map<string, Record<string, number | string>>()
+
+  for (const simLoan of simulation.loans) {
+    const loanName = nameMap.get(String(simLoan.loan_id)) ?? `Loan ${simLoan.loan_id}`
+    for (const entry of simLoan.payment_schedule ?? []) {
+      const dateKey = format(new Date(entry.payment_date), 'yyyy-MM')
+      if (!dateMap.has(dateKey)) dateMap.set(dateKey, { date: dateKey })
+      dateMap.get(dateKey)![loanName] = entry.remaining_principal
+    }
+  }
+
+  const loanNames = perLoan.map((pl) => pl.name ?? `Loan ${pl.loan_id}`)
+
+  return {
+    data: Array.from(dateMap.keys())
+      .sort()
+      .map((k) => dateMap.get(k)!),
+    loanNames,
+  }
+}
+
+export function LoanProgressChart({
+  loans,
+  simulation,
+  simulationPerLoan,
+}: {
+  loans: LoanDb[]
+  simulation?: Simulation
+  simulationPerLoan?: PerLoan[]
+}) {
+  const isSimulated = !!(simulation && simulationPerLoan?.length)
+
   const activeLoans = useMemo(() => loans?.filter((l) => l.current_principal > 0.01) ?? [], [loans])
 
   const { chartData, chartConfig, tickDates, todayKey } = useMemo(() => {
-    const dateMap = new Map<string, Record<string, number | string>>()
+    let sortedData: Record<string, number | string>[] = []
+    let loanNames: string[] = []
 
-    for (const loan of activeLoans) {
-      const series = buildAmortizationSeries(loan)
-      for (const { date, remaining } of series) {
-        if (!dateMap.has(date)) dateMap.set(date, { date })
-        dateMap.get(date)![loan.name] = remaining
+    if (isSimulated) {
+      const built = buildSimulationChartData(simulation, simulationPerLoan)
+      sortedData = built.data
+      loanNames = built.loanNames
+    } else {
+      const dateMap = new Map<string, Record<string, number | string>>()
+      for (const loan of activeLoans) {
+        const series = buildAmortizationSeries(loan)
+        for (const { date, remaining } of series) {
+          if (!dateMap.has(date)) dateMap.set(date, { date })
+          dateMap.get(date)![loan.name] = remaining
+        }
       }
+      sortedData = Array.from(dateMap.keys())
+        .sort()
+        .map((key) => dateMap.get(key)!)
+      loanNames = activeLoans.map((l) => l.name)
     }
 
-    const sortedData = Array.from(dateMap.keys())
-      .sort()
-      .map((key) => dateMap.get(key)!)
-
-    const config = activeLoans.reduce<ChartConfig>((acc, loan) => {
-      acc[loan.name] = { label: loan.name }
+    const config = loanNames.reduce<ChartConfig>((acc, name) => {
+      acc[name] = { label: name }
       return acc
     }, {})
 
@@ -68,10 +112,15 @@ export function LoanProgressChart({ loans }: { loans: LoanDb[] }) {
       chartConfig: config,
       tickDates: ticks,
       todayKey: format(new Date(), 'yyyy-MM'),
+      loanNames,
     }
-  }, [activeLoans])
+  }, [isSimulated, simulation, simulationPerLoan, activeLoans])
 
-  if (!activeLoans.length) {
+  const loanNames = isSimulated
+    ? (simulationPerLoan?.map((pl) => pl.name ?? `Loan ${pl.loan_id}`) ?? [])
+    : activeLoans.map((l) => l.name)
+
+  if (!loanNames.length) {
     return (
       <Card className='flex flex-1 items-center justify-center'>
         <p className='text-muted-foreground text-sm'>No active loans</p>
@@ -82,7 +131,9 @@ export function LoanProgressChart({ loans }: { loans: LoanDb[] }) {
   return (
     <Card className='flex flex-1 flex-col rounded-none'>
       <CardHeader className='pb-2'>
-        <CardTitle className='text-base font-medium'>Loan Payoff Projection</CardTitle>
+        <CardTitle className='text-base font-medium'>
+          Loan Payoff Projection{isSimulated ? ' (Simulated)' : ''}
+        </CardTitle>
       </CardHeader>
       <CardContent className='flex min-h-0 flex-1 flex-col p-4 pt-0'>
         <ChartContainer config={chartConfig} className='aspect-auto h-full w-full'>
@@ -121,11 +172,11 @@ export function LoanProgressChart({ loans }: { loans: LoanDb[] }) {
               }}
             />
             <ChartTooltip content={(props) => <ToolTip {...props} />} />
-            {activeLoans.map((loan, i) => (
+            {loanNames.map((name, i) => (
               <Line
-                key={loan.name}
+                key={name}
                 type='monotone'
-                dataKey={loan.name}
+                dataKey={name}
                 stroke={LINE_COLORS[i % LINE_COLORS.length]}
                 strokeWidth={2}
                 dot={false}

@@ -30,6 +30,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TableCellViewer } from './table-cell-viewer'
 import { useDeleteLoan } from '@/lib/api/loans'
+import { useActiveSimulation, useAllSimulationSummaries } from '@/lib/api/simulations'
 import { DeleteLoans } from './delete-loans'
 import { toast } from 'sonner'
 import { SortableHeader } from './sortable-header'
@@ -44,6 +45,15 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
   const deleteLoan = useDeleteLoan()
   const deleteLoanRef = useRef(deleteLoan)
   deleteLoanRef.current = deleteLoan
+
+  const { data: activeSimInfo } = useActiveSimulation()
+  const { data: summaries } = useAllSimulationSummaries()
+
+  const simulationLoanIds = useMemo(() => {
+    if (!activeSimInfo?.active_simulation_id || !summaries) return new Set<string>()
+    const activeSim = summaries.find((s) => s.simulation.id === activeSimInfo.active_simulation_id)
+    return new Set(activeSim?.perLoan.map((pl) => pl.loan_id) ?? [])
+  }, [activeSimInfo, summaries])
 
   useEffect(() => {
     if (initialData) {
@@ -114,7 +124,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       header: 'Loan Name',
       cell: ({ row }) => {
         return (
-          <TableCellViewer data={row.original}>
+          <TableCellViewer data={row.original} isSimulationControlled={simulationLoanIds.has(row.original.id)}>
             <Button variant='link' className='text-foreground w-fit px-0 text-left'>
               {row.original.name}
             </Button>
@@ -210,7 +220,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-32'>
-              <TableCellViewer data={row.original}>
+              <TableCellViewer data={row.original} isSimulationControlled={simulationLoanIds.has(row.original.id)}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
               </TableCellViewer>
               <DropdownMenuSeparator />
@@ -229,7 +239,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       },
       enableHiding: false,
     },
-  ], [handleDeleteLoan])
+  ], [handleDeleteLoan, simulationLoanIds])
 
   const table = useReactTable({
     data,

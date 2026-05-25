@@ -116,6 +116,39 @@ export const useSetActiveSimulation = () => {
   })
 }
 
+export const useDeactivateSimulation = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<ActiveSimulation, ApiError, void>({
+    mutationFn: async () => {
+      const response = await axios.post<ActiveSimulation>('/simulations/deactivate')
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['simulations', 'active'] })
+      queryClient.invalidateQueries({ queryKey: ['loans'] })
+    },
+  })
+}
+
+export const useSyncActiveSimulation = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<{ synced: boolean }, ApiError, void>({
+    mutationFn: async () => {
+      const response = await axios.post<{ synced: boolean }>('/simulations/active/sync')
+      return response.data
+    },
+    onSuccess: (data) => {
+      if (data.synced) {
+        queryClient.invalidateQueries({ queryKey: ['loans'] })
+      }
+    },
+  })
+}
+
 export const useDeleteSimulation = () => {
   const axios = useAxios()
   const queryClient = useQueryClient()
