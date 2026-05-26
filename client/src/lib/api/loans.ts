@@ -71,6 +71,22 @@ export const useUpdateLoan = () => {
   })
 }
 
+export const useApplyLumpSum = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<LoanDb, ApiError, { id: string; amount: number; date: string }>({
+    mutationFn: async ({ id, amount, date }) => {
+      const response = await axios.patch<LoanDb>(`/loans/${id}/lump-sum`, { amount, date })
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] })
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.id] })
+    },
+  })
+}
+
 export const useLoanProgress = (params?: { loan_ids?: number[] }) => {
   const axios = useAxios()
 

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
+import { ApplyLumpSumDto } from './dto/apply-lump-sum.dto';
 import { DatabaseService } from '../database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { LoanDb } from 'src/lib/types/loan.types';
@@ -347,6 +348,72 @@ export class LoansService {
       loan: updatedLoan,
       paymentSchedule: schedule,
     };
+  }
+
+  async applyLumpSum(userId: BigInt, loanId: BigInt, dto: ApplyLumpSumDto) {
+    const d = new Date(dto.date);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+
+    const rows = await this.db.query(
+      `SELECT id, payment_number, remaining_principal, payment_date
+       FROM payment_schedules
+       WHERE loan_id = $1
+         AND EXTRACT(year FROM payment_date) = $2
+         AND EXTRACT(month FROM payment_date) = $3
+       ORDER BY payment_number ASC
+       LIMIT 1`,
+      [loanId, year, month],
+    );
+
+    if (!rows[0]) throw new NotFoundException('No payment scheduled for that date');
+    const entry = rows[0];
+
+    const newPrincipal = Math.max(0, Number(entry.remaining_principal) - dto.amount);
+    const actualReduction = Number(entry.remaining_principal) - newPrincipal;
+
+    await this.db.query(
+      `UPDATE payment_schedules
+       SET remaining_principal = $1,
+           extra_payment = extra_payment + $2,
+           principal_paid = principal_paid + $2
+       WHERE id = $3`,
+      [newPrincipal, actualReduction, entry.id],
+    );
+
+    // Delete all entries after the matched payment, plus any duplicates for the same payment_number
+    await this.db.query(
+      'DELETE FROM payment_schedules WHERE loan_id = $1 AND (payment_number > $2 OR (payment_number = $2 AND id != $3))',
+      [loanId, entry.payment_number, entry.id],
+    );
+
+    const loanRows = await this.db.query(
+      `SELECT id, starting_principal, interest_rate, minimum_payment,
+              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
+       FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
+    );
+    if (!loanRows[0]) throw new NotFoundException('Loan not found');
+
+    if (newPrincipal > 0) {
+      // Advance startDate by one month so getNewPaymentDate targets the correct next payment month
+      const nextMonthDate = new Date(entry.payment_date);
+      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+
+      const schedules = this.paymentSchedules.calculatePaymentSchedule(loanRows[0], {
+        startFromPaymentNumber: entry.payment_number + 1,
+        startingPrincipal: newPrincipal,
+        startDate: nextMonthDate,
+      });
+
+      if (schedules.length > 0) {
+        await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
+      }
+    }
+
+    await this.paymentSchedules.processAllPendingPayments(loanId);
+
+    return this.findOne(userId, loanId);
   }
 
   remove(userId: BigInt, loanId: BigInt) {
