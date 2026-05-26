@@ -48,7 +48,7 @@ export default function Simulations() {
     monthsSaved: false,
     monthsTilPayoff: true,
   }
-  const [loadingSimId, setLoadingSimId] = useState<number | null>(null)
+  const [loadingSimId, setLoadingSimId] = useState<string | null>(null)
   const [filter, setFilter] = useState('All')
   const [sortBy, setSortBy] = useState('updatedAt')
   const [sortAsc, setSortAsc] = useState(sortDefaults['updatedAt'])
