@@ -309,7 +309,7 @@ export class LoansService {
         interest_rate = COALESCE($4, interest_rate),
         minimum_payment = COALESCE($5, minimum_payment),
         extra_payment = COALESCE($6, extra_payment),
-        extra_payment_start_date = COALESCE($7, extra_payment_start_date),
+        extra_payment_start_date = $7,
         start_date = COALESCE($8, start_date),
         payment_day_of_month = COALESCE($9, payment_day_of_month)
       WHERE id = $10

@@ -46,6 +46,9 @@ export function DatePicker({
               setDate(date)
               onChange?.(date)
               setMonth(date)
+            } else if (!e.target.value) {
+              setDate(undefined)
+              onChange?.(undefined)
             }
           }}
           onKeyDown={(e) => {
