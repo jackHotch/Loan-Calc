@@ -22,7 +22,7 @@ import {
   useSetActiveSimulation,
 } from '@/lib/api/simulations'
 import { cn, formatCurrency } from '@/lib/utils'
-import { Plus, MoveUp, MoveDown } from 'lucide-react'
+import { Plus, MoveUp, MoveDown, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -48,6 +48,7 @@ export default function Simulations() {
     monthsSaved: false,
     monthsTilPayoff: true,
   }
+  const [loadingSimId, setLoadingSimId] = useState<number | null>(null)
   const [filter, setFilter] = useState('All')
   const [sortBy, setSortBy] = useState('updatedAt')
   const [sortAsc, setSortAsc] = useState(sortDefaults['updatedAt'])
@@ -200,11 +201,17 @@ export default function Simulations() {
                   <div className='flex gap-2'>
                     <Button
                       variant='outline'
-                      onClick={() =>
-                        isActiveSimulation
-                          ? deactivateSimulation.mutateAsync()
-                          : setActiveSimulation.mutateAsync(sim.simulation.id)
-                      }
+                      disabled={loadingSimId === sim.simulation.id}
+                      onClick={async () => {
+                        setLoadingSimId(sim.simulation.id)
+                        try {
+                          isActiveSimulation
+                            ? await deactivateSimulation.mutateAsync()
+                            : await setActiveSimulation.mutateAsync(sim.simulation.id)
+                        } finally {
+                          setLoadingSimId(null)
+                        }
+                      }}
                       className={cn(
                         'uppercase text-xs',
                         isActiveSimulation
@@ -212,7 +219,13 @@ export default function Simulations() {
                           : 'hover:text-primary',
                       )}
                     >
-                      {isActiveSimulation ? 'Deactivate' : 'Set Active'}
+                      {loadingSimId === sim.simulation.id ? (
+                        <Loader2 className='animate-spin' />
+                      ) : isActiveSimulation ? (
+                        'Deactivate'
+                      ) : (
+                        'Set Active'
+                      )}
                     </Button>
                     <Button
                       variant='outline'

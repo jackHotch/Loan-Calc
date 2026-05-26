@@ -98,7 +98,7 @@ export function formToDb(
     starting_principal: form.starting_principal,
     interest_rate: form.interest_rate,
     minimum_payment: form.minimum_payment,
-    extra_payment: form.extra_payment || null,
+    extra_payment: form.extra_payment ?? null,
     extra_payment_start_date: form.extra_payment_start_date,
     start_date: formatDate(form.start_date),
     payment_day_of_month: form.next_payment_date.getDate(),

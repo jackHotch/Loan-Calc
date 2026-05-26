@@ -12,12 +12,13 @@ import { Button } from '@/components/ui/button'
 import {
   useActiveSimulation,
   useCreateSimulation,
+  useDeactivateSimulation,
   useSetActiveSimulation,
   useSimulation,
   useSimulationComparison,
   useUpdateSimulation,
 } from '@/lib/api/simulations'
-import { ArrowRight, Save } from 'lucide-react'
+import { ArrowRight, Loader2, Save } from 'lucide-react'
 import { StrategyType } from '@/constants/schema'
 import { ExtraPayment, LumpSumPayment, SimulationResult } from '@/constants/types'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -40,6 +41,8 @@ export function CreateSimulation() {
   const { data: simulationComparison, isLoading } = useSimulationComparison(simulationId)
   const { data: activeSimulation } = useActiveSimulation()
   const setActiveSimulation = useSetActiveSimulation()
+  const deactivateSimulation = useDeactivateSimulation()
+  const [activeLoading, setActiveLoading] = useState(false)
 
   const [currentSimulationComparison, setCurrentSimulationComparison] = useState<SimulationResult>()
   const [name, setName] = useState<string>('')
@@ -571,13 +574,37 @@ export function CreateSimulation() {
 
             {existingSimulation && <SimulationChartModal simulation={existingSimulation} loans={loans ?? []} />}
 
-            {activeSimulation.active_simulation_id != simulationId && (
+            {activeSimulation.active_simulation_id == simulationId ? (
               <Button
                 variant='outline'
-                onClick={() => setActiveSimulation.mutateAsync(simulationId)}
+                disabled={activeLoading}
+                onClick={async () => {
+                  setActiveLoading(true)
+                  try {
+                    await deactivateSimulation.mutateAsync()
+                  } finally {
+                    setActiveLoading(false)
+                  }
+                }}
+                className='border-primary text-primary bg-primary/8 hover:bg-destructive/20 hover:border-destructive/60 hover:text-destructive'
+              >
+                {activeLoading ? <Loader2 className='animate-spin' /> : 'Deactivate'}
+              </Button>
+            ) : (
+              <Button
+                variant='outline'
+                disabled={activeLoading}
+                onClick={async () => {
+                  setActiveLoading(true)
+                  try {
+                    await setActiveSimulation.mutateAsync(simulationId)
+                  } finally {
+                    setActiveLoading(false)
+                  }
+                }}
                 className='border-primary bg-primary/8'
               >
-                Set as Active
+                {activeLoading ? <Loader2 className='animate-spin' /> : 'Set as Active'}
               </Button>
             )}
           </div>
