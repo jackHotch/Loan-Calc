@@ -20,16 +20,20 @@ export function DatePicker({
   onChange,
   className,
   disabled = false,
+  maxDate,
 }: {
   value?: Date
   onChange?: (date: Date | undefined) => void
   className?: CSSProperties
   disabled?: boolean
+  maxDate?: Date
 }) {
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState<Date | undefined>(externalDate)
   const [month, setMonth] = useState<Date | undefined>(externalDate)
   const [value, setValue] = useState(externalDate ? formatInputDate(externalDate) : '')
+
+  const isAfterMax = (d: Date) => !!maxDate && d > maxDate
 
   return (
     <Field className={cn('mx-auto', className)}>
@@ -42,7 +46,7 @@ export function DatePicker({
           onChange={(e) => {
             const date = new Date(e.target.value)
             setValue(e.target.value)
-            if (isValidDate(date)) {
+            if (isValidDate(date) && !isAfterMax(date)) {
               setDate(date)
               onChange?.(date)
               setMonth(date)
@@ -72,6 +76,7 @@ export function DatePicker({
                 selected={date}
                 month={month}
                 onMonthChange={setMonth}
+                disabled={maxDate ? { after: maxDate } : undefined}
                 onSelect={(date) => {
                   setDate(date)
                   onChange?.(date)

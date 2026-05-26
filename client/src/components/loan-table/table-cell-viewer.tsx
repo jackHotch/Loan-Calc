@@ -19,7 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
 import { PercentageInput } from './percentage-input'
 import { formToDb, tableToForm } from '@/lib/utils'
-import { useCreateLoan, useUpdateLoan } from '@/lib/api/loans'
+import { useCreateLoan, useUpdateLoan, useApplyLumpSum } from '@/lib/api/loans'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -36,9 +36,12 @@ export function TableCellViewer({
 }) {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [lumpSumAmount, setLumpSumAmount] = useState<number | null>(null)
+  const [lumpSumDate, setLumpSumDate] = useState<Date | null>(null)
   const formKey = useRef(0)
   const createLoan = useCreateLoan()
   const updateLoan = useUpdateLoan()
+  const applyLumpSum = useApplyLumpSum()
   const description = isNewLoan
     ? 'Edit loan details and payment information'
     : 'Enter new loan details and payment information'
@@ -85,6 +88,22 @@ export function TableCellViewer({
       }
     } catch (error: any) {
       toast.error('Unable to save loan')
+    }
+  }
+
+  const handleApplyLumpSum = async () => {
+    if (!lumpSumAmount || !lumpSumDate || !data?.id) return
+    try {
+      await applyLumpSum.mutateAsync({
+        id: data.id,
+        amount: lumpSumAmount,
+        date: lumpSumDate.toISOString(),
+      })
+      setLumpSumAmount(null)
+      setLumpSumDate(null)
+      toast.success('Lump sum payment applied!')
+    } catch {
+      toast.error('Unable to apply lump sum payment')
     }
   }
 
@@ -198,6 +217,41 @@ export function TableCellViewer({
                 />
               </div>
             </div>
+            {!isNewLoan && (
+              <div className='flex flex-col gap-3'>
+                <Label>Lump Sum Payment</Label>
+                {isSimulationControlled && (
+                  <p className='text-xs text-amber-500'>Lump sum payments are locked while a simulation is active.</p>
+                )}
+                <div className='grid grid-cols-2 gap-4'>
+                  <div className='flex flex-col gap-3'>
+                    <Label className='text-xs text-muted-foreground'>Amount</Label>
+                    <CurrencyInput
+                      defaultValue={lumpSumAmount}
+                      onChange={setLumpSumAmount}
+                      disabled={isSimulationControlled}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-3'>
+                    <Label className='text-xs text-muted-foreground'>Date</Label>
+                    <DatePicker
+                      value={lumpSumDate}
+                      onChange={setLumpSumDate}
+                      disabled={isSimulationControlled}
+                      maxDate={new Date()}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type='button'
+                  variant='secondary'
+                  onClick={handleApplyLumpSum}
+                  disabled={isSimulationControlled || !lumpSumAmount || !lumpSumDate}
+                >
+                  Apply Lump Sum
+                </Button>
+              </div>
+            )}
           </form>
         </div>
         <DrawerFooter>

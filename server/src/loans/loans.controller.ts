@@ -11,6 +11,7 @@ import {
 import { LoansService } from './loans.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
+import { ApplyLumpSumDto } from './dto/apply-lump-sum.dto';
 import { ClerkAuthGuard } from 'src/auth/clerk-auth.guard';
 import { User } from 'src/auth/user.decorator';
 
@@ -51,6 +52,15 @@ export class LoansController {
     @Body() loanData: UpdateLoanDto,
   ) {
     return this.loansService.update(userId, BigInt(id), loanData);
+  }
+
+  @Patch(':id/lump-sum')
+  applyLumpSum(
+    @User() userId: BigInt,
+    @Param('id') id: string,
+    @Body() dto: ApplyLumpSumDto,
+  ) {
+    return this.loansService.applyLumpSum(userId, BigInt(id), dto);
   }
 
   @Delete(':id')
