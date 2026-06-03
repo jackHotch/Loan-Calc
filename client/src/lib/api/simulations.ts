@@ -144,6 +144,7 @@ export const useSyncActiveSimulation = () => {
     onSuccess: (data) => {
       if (data.synced) {
         queryClient.invalidateQueries({ queryKey: ['loans'] })
+        queryClient.invalidateQueries({ queryKey: ['simulations'] })
       }
     },
   })

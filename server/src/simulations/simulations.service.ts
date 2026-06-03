@@ -1308,8 +1308,55 @@ export class SimulationsService {
     if (!activeId) return { synced: false };
 
     await this.applySimulationToLoans(userId, BigInt(activeId));
+    await this.recalculateSimulationSchedule(userId, BigInt(activeId));
 
     return { synced: true };
+  }
+
+  private async recalculateSimulationSchedule(userId: BigInt, simulationId: BigInt) {
+    const simRows = await this.db.query(
+      `SELECT s.strategy_type, s.cascade,
+        ARRAY_AGG(sl.loan_id) AS loan_ids,
+        (SELECT json_agg(ep.* ORDER BY ep.start_date) FROM simulation_extra_payments ep WHERE ep.simulation_id = s.id) AS extra_payments,
+        (SELECT json_agg(lsp.* ORDER BY lsp.date) FROM simulation_lump_sum_payments lsp WHERE lsp.simulation_id = s.id) AS lump_sum_payments
+       FROM simulations s
+       JOIN simulation_loans sl ON sl.simulation_id = s.id
+       WHERE s.id = $1 AND s.user_id = $2
+       GROUP BY s.id`,
+      [simulationId, userId],
+    );
+    const sim = simRows[0];
+    if (!sim) return;
+
+    const loans: LoanDb[] = [];
+    for (const loanId of sim.loan_ids) {
+      loans.push(await this.loanService.findOne(userId, loanId));
+    }
+
+    const calculatedSimulation = await this.runSimulation(
+      loans,
+      sim.strategy_type,
+      sim.extra_payments ?? [],
+      sim.cascade,
+      sim.lump_sum_payments ?? [],
+    );
+
+    for (const loan of calculatedSimulation) {
+      const [simLoan] = await this.db.query(
+        `SELECT id FROM simulation_loans WHERE simulation_id = $1 AND loan_id = $2`,
+        [simulationId, loan.id],
+      );
+      if (!simLoan) continue;
+
+      await this.db.query(
+        `DELETE FROM payment_schedules WHERE simulation_loan_id = $1`,
+        [simLoan.id],
+      );
+
+      if (loan.schedule.length > 0) {
+        await this.paymentSchedules.saveSchedule(simLoan.id, 'simulation', loan.schedule);
+      }
+    }
   }
 
   async getActiveSimulationId(userId: BigInt) {
