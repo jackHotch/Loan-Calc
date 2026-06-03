@@ -19,7 +19,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
 import { PercentageInput } from './percentage-input'
 import { formToDb, tableToForm } from '@/lib/utils'
-import { useCreateLoan, useUpdateLoan, useApplyLumpSum } from '@/lib/api/loans'
+import { useCreateLoan, useUpdateLoan, useApplyLumpSum, useLoanLumpSums } from '@/lib/api/loans'
+import { useActiveSimulation, useSimulation } from '@/lib/api/simulations'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -42,6 +44,10 @@ export function TableCellViewer({
   const createLoan = useCreateLoan()
   const updateLoan = useUpdateLoan()
   const applyLumpSum = useApplyLumpSum()
+  const lumpSums = useLoanLumpSums(!isNewLoan ? data?.id : undefined)
+  const activeSimulation = useActiveSimulation()
+  const activeSimId = isSimulationControlled ? activeSimulation.data?.active_simulation_id : undefined
+  const simulation = useSimulation(activeSimId)
   const description = isNewLoan
     ? 'Edit loan details and payment information'
     : 'Enter new loan details and payment information'
@@ -250,6 +256,33 @@ export function TableCellViewer({
                 >
                   Apply Lump Sum
                 </Button>
+                {((lumpSums.data && lumpSums.data.length > 0) ||
+                  (isSimulationControlled && (simulation.data?.lump_sum_payments?.length ?? 0) > 0)) && (
+                  <div className='flex flex-col gap-2 border-t pt-3 mt-1'>
+                    {lumpSums.data && lumpSums.data.length > 0 && (
+                      <div className='flex flex-col gap-1'>
+                        <p className='text-xs font-medium text-muted-foreground'>Applied</p>
+                        {lumpSums.data.map((ls) => (
+                          <div key={ls.id} className='flex justify-between text-xs'>
+                            <span className='text-muted-foreground'>{formatDate(new Date(ls.date))}</span>
+                            <span className='font-medium'>{formatCurrency(ls.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isSimulationControlled && (simulation.data?.lump_sum_payments?.length ?? 0) > 0 && (
+                      <div className='flex flex-col gap-1 mt-1'>
+                        <p className='text-xs font-medium text-muted-foreground'>Planned (simulation)</p>
+                        {simulation.data!.lump_sum_payments.map((ls) => (
+                          <div key={ls.id} className='flex justify-between text-xs'>
+                            <span className='text-muted-foreground'>{formatDate(new Date(ls.date))}</span>
+                            <span className='font-medium text-blue-500'>{formatCurrency(ls.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </form>

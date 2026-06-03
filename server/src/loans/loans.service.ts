@@ -381,6 +381,11 @@ export class LoansService {
       [newPrincipal, actualReduction, entry.id],
     );
 
+    await this.db.query(
+      `INSERT INTO loan_lump_sum_payments (loan_id, amount, date) VALUES ($1, $2, $3)`,
+      [loanId, actualReduction, dto.date],
+    );
+
     // Delete all entries after the matched payment, plus any duplicates for the same payment_number
     await this.db.query(
       'DELETE FROM payment_schedules WHERE loan_id = $1 AND (payment_number > $2 OR (payment_number = $2 AND id != $3))',
@@ -416,6 +421,18 @@ export class LoansService {
     return this.findOne(userId, loanId);
   }
 
+  async getLumpSums(userId: BigInt, loanId: BigInt) {
+    const loan = await this.db.queryOne(
+      `SELECT id FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
+    );
+    if (!loan) throw new NotFoundException('Loan not found');
+    return this.db.query(
+      `SELECT id, amount::float, date FROM loan_lump_sum_payments WHERE loan_id = $1 ORDER BY date DESC`,
+      [loanId],
+    );
+  }
+
   remove(userId: BigInt, loanId: BigInt) {
     return this.db.query(
       `
@@ -424,6 +441,24 @@ export class LoansService {
       AND user_id = $2
       `,
       [loanId, userId],
+    );
+  }
+
+  async getAllSchedules(userId: BigInt) {
+    return await this.db.query(
+      `SELECT
+        ps.loan_id,
+        l.name,
+        ps.payment_number,
+        ps.payment_date,
+        ps.remaining_principal,
+        ps.is_actual
+       FROM payment_schedules ps
+       JOIN loans l ON l.id = ps.loan_id
+       WHERE l.user_id = $1
+         AND ps.loan_id IS NOT NULL
+       ORDER BY ps.loan_id, ps.payment_number`,
+      [userId],
     );
   }
 

@@ -1,54 +1,56 @@
 'use client'
 
 import { useMemo } from 'react'
-import { addMonths, format, startOfMonth } from 'date-fns'
+import { format } from 'date-fns'
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { LoanDb, PerLoan, Simulation } from '@/constants/schema'
+import { LoanScheduleEntry } from '@/lib/api/loans'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartConfig, ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip } from '@/components/ui/chart'
 import { ToolTip } from './tooltip'
 import { LINE_COLORS } from '@/constants/constants'
 
-function buildAmortizationSeries(loan: LoanDb): { date: string; remaining: number }[] {
-  const monthlyRate = Number(loan.interest_rate) / 100 / 12
-  const minimumPayment = Number(loan.minimum_payment)
-  const points: { date: string; remaining: number }[] = []
-
-  let remaining = Number(loan.starting_principal)
-  let current = startOfMonth(new Date(loan.start_date))
-  const extraStartDate = loan.extra_payment_start_date
-    ? new Date(loan.extra_payment_start_date as unknown as string)
-    : null
-
-  let iterations = 0
-  while (remaining > 0.01 && iterations < 600) {
-    iterations++
-    points.push({ date: format(current, 'yyyy-MM'), remaining: Math.round(remaining * 100) / 100 })
-
-    const interest = remaining * monthlyRate
-    const extra =
-      loan.extra_payment != null && extraStartDate != null && current >= extraStartDate ? Number(loan.extra_payment) : 0
-    const principalPaid = minimumPayment + extra - interest
-
-    if (principalPaid <= 0) break
-    remaining = Math.max(0, remaining - principalPaid)
-    current = addMonths(current, 1)
-  }
-
-  return points
+function buildScheduleSeries(
+  entries: LoanScheduleEntry[],
+): { date: string; remaining: number }[] {
+  return entries.map((e) => ({
+    date: format(new Date(e.payment_date), 'yyyy-MM'),
+    remaining: Number(e.remaining_principal),
+  }))
 }
 
 function buildSimulationChartData(
   simulation: Simulation,
   perLoan: PerLoan[],
+  loanSchedules?: LoanScheduleEntry[],
 ): { data: Record<string, number | string>[]; loanNames: string[] } {
   const nameMap = new Map(perLoan.map((pl) => [String(pl.loan_id), pl.name ?? `Loan ${pl.loan_id}`]))
   const dateMap = new Map<string, Record<string, number | string>>()
 
+  // Index actual history from real loan schedules, keyed by loan_id → date → remaining
+  const actualByLoan = new Map<string, Map<string, number>>()
+  for (const entry of loanSchedules ?? []) {
+    if (!entry.is_actual) continue
+    const loanKey = String(entry.loan_id)
+    if (!actualByLoan.has(loanKey)) actualByLoan.set(loanKey, new Map())
+    const dateKey = format(new Date(entry.payment_date), 'yyyy-MM')
+    actualByLoan.get(loanKey)!.set(dateKey, Number(entry.remaining_principal))
+  }
+
   for (const simLoan of simulation.loans) {
     const loanName = nameMap.get(String(simLoan.loan_id)) ?? `Loan ${simLoan.loan_id}`
+    const actualDates = actualByLoan.get(String(simLoan.loan_id)) ?? new Map<string, number>()
+
+    // Plot actual payment history first
+    for (const [dateKey, remaining] of actualDates) {
+      if (!dateMap.has(dateKey)) dateMap.set(dateKey, { date: dateKey })
+      dateMap.get(dateKey)![loanName] = remaining
+    }
+
+    // Plot simulation projected entries, skipping months already covered by actuals
     for (const entry of simLoan.payment_schedule ?? []) {
       const dateKey = format(new Date(entry.payment_date), 'yyyy-MM')
+      if (actualDates.has(dateKey)) continue
       if (!dateMap.has(dateKey)) dateMap.set(dateKey, { date: dateKey })
       dateMap.get(dateKey)![loanName] = entry.remaining_principal
     }
@@ -66,10 +68,12 @@ function buildSimulationChartData(
 
 export function LoanProgressChart({
   loans,
+  loanSchedules,
   simulation,
   simulationPerLoan,
 }: {
   loans: LoanDb[]
+  loanSchedules?: LoanScheduleEntry[]
   simulation?: Simulation
   simulationPerLoan?: PerLoan[]
 }) {
@@ -82,13 +86,20 @@ export function LoanProgressChart({
     let loanNames: string[] = []
 
     if (isSimulated) {
-      const built = buildSimulationChartData(simulation, simulationPerLoan)
+      const built = buildSimulationChartData(simulation, simulationPerLoan, loanSchedules)
       sortedData = built.data
       loanNames = built.loanNames
     } else {
       const dateMap = new Map<string, Record<string, number | string>>()
+      const schedulesByLoanId = new Map<string, LoanScheduleEntry[]>()
+      for (const entry of loanSchedules ?? []) {
+        const key = String(entry.loan_id)
+        if (!schedulesByLoanId.has(key)) schedulesByLoanId.set(key, [])
+        schedulesByLoanId.get(key)!.push(entry)
+      }
       for (const loan of activeLoans) {
-        const series = buildAmortizationSeries(loan)
+        const entries = schedulesByLoanId.get(String(loan.id)) ?? []
+        const series = buildScheduleSeries(entries)
         for (const { date, remaining } of series) {
           if (!dateMap.has(date)) dateMap.set(date, { date })
           dateMap.get(date)![loan.name] = remaining
@@ -114,7 +125,7 @@ export function LoanProgressChart({
       todayKey: format(new Date(), 'yyyy-MM'),
       loanNames,
     }
-  }, [isSimulated, simulation, simulationPerLoan, activeLoans])
+  }, [isSimulated, simulation, simulationPerLoan, activeLoans, loanSchedules])
 
   const loanNames = isSimulated
     ? (simulationPerLoan?.map((pl) => pl.name ?? `Loan ${pl.loan_id}`) ?? [])

@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { Summary } from '@/components/overview/summary'
 import { LoanProgressChart } from '@/components/loan-progress-chart'
 import { PaymentBreakdown } from '@/components/overview/payment-breakdown'
-import { useLoans } from '@/lib/api/loans'
+import { useLoanSchedules, useLoans } from '@/lib/api/loans'
 import {
   useActiveSimulation,
   useAllSimulationSummaries,
@@ -14,6 +14,7 @@ import {
 
 function Overview() {
   const { data: loans } = useLoans()
+  const { data: loanSchedules } = useLoanSchedules()
   const { data: activeSimInfo } = useActiveSimulation()
   const { data: summaries } = useAllSimulationSummaries()
   const syncSimulation = useSyncActiveSimulation()
@@ -42,6 +43,7 @@ function Overview() {
         <div className='flex-65 flex min-h-0 min-w-0 flex-col'>
           <LoanProgressChart
             loans={loans}
+            loanSchedules={loanSchedules}
             simulation={activeSimDetail}
             simulationPerLoan={activeSummary?.perLoan}
           />
