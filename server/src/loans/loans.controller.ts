@@ -73,6 +73,15 @@ export class LoansController {
     return this.loansService.applyLumpSum(userId, BigInt(id), dto);
   }
 
+  @Delete(':id/lump-sums/:lumpSumId')
+  deleteLumpSum(
+    @User() userId: BigInt,
+    @Param('id') id: string,
+    @Param('lumpSumId') lumpSumId: string,
+  ) {
+    return this.loansService.deleteLumpSum(userId, BigInt(id), BigInt(lumpSumId));
+  }
+
   @Delete(':id')
   remove(@User() userId: BigInt, @Param('id') id: string) {
     return this.loansService.remove(userId, BigInt(id));

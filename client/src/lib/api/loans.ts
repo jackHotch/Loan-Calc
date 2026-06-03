@@ -95,6 +95,24 @@ export type LoanLumpSum = {
   date: string
 }
 
+export const useDeleteLumpSum = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<LoanDb, ApiError, { loanId: string; lumpSumId: number }>({
+    mutationFn: async ({ loanId, lumpSumId }) => {
+      const response = await axios.delete<LoanDb>(`/loans/${loanId}/lump-sums/${lumpSumId}`)
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] })
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.loanId] })
+      queryClient.invalidateQueries({ queryKey: ['loans', 'schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.loanId, 'lump-sums'] })
+    },
+  })
+}
+
 export const useLoanLumpSums = (loanId: string | undefined) => {
   const axios = useAxios()
 

@@ -433,6 +433,153 @@ export class LoansService {
     );
   }
 
+  async deleteLumpSum(userId: BigInt, loanId: BigInt, lumpSumId: BigInt) {
+    const loanRows = await this.db.query(
+      `SELECT id, starting_principal, interest_rate, minimum_payment,
+              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
+       FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
+    );
+    if (!loanRows[0]) throw new NotFoundException('Loan not found');
+    const loan = loanRows[0];
+
+    const lumpSum = await this.db.queryOne(
+      `SELECT id, amount::float AS amount, date FROM loan_lump_sum_payments WHERE id = $1 AND loan_id = $2`,
+      [lumpSumId, loanId],
+    );
+    if (!lumpSum) throw new NotFoundException('Lump sum payment not found');
+
+    // Collect any other lump sums at or after this date — they must be re-applied after we revert
+    const laterLumpSums = await this.db.query(
+      `SELECT amount::float AS amount, date FROM loan_lump_sum_payments
+       WHERE loan_id = $1 AND id != $2 AND date >= $3
+       ORDER BY date ASC`,
+      [loanId, lumpSumId, lumpSum.date],
+    );
+
+    await this.db.query(`DELETE FROM loan_lump_sum_payments WHERE id = $1`, [lumpSumId]);
+
+    // Find the payment entry that was modified when this lump sum was applied
+    const d = new Date(lumpSum.date);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+
+    const entry = await this.db.queryOne(
+      `SELECT id, payment_number, remaining_principal::float AS remaining_principal, payment_date
+       FROM payment_schedules
+       WHERE loan_id = $1
+         AND EXTRACT(year FROM payment_date) = $2
+         AND EXTRACT(month FROM payment_date) = $3
+       ORDER BY payment_number ASC LIMIT 1`,
+      [loanId, year, month],
+    );
+
+    if (!entry) {
+      // Entry no longer exists — full regeneration is the best we can do
+      await this.paymentSchedules.generateScheduleForExistingLoan(loan);
+      await this.paymentSchedules.processAllPendingPayments(loanId);
+      return this.findOne(userId, loanId);
+    }
+
+    // Revert: add the lump sum amount back to this entry's principal
+    const revertedPrincipal = Number(entry.remaining_principal) + lumpSum.amount;
+    await this.db.query(
+      `UPDATE payment_schedules
+       SET remaining_principal = $1,
+           extra_payment       = GREATEST(0, extra_payment - $2),
+           principal_paid      = GREATEST(0, principal_paid - $2)
+       WHERE id = $3`,
+      [revertedPrincipal, lumpSum.amount, entry.id],
+    );
+
+    // Remove all schedule entries after the reverted payment
+    await this.db.query(
+      `DELETE FROM payment_schedules WHERE loan_id = $1 AND payment_number > $2`,
+      [loanId, entry.payment_number],
+    );
+
+    // Rebuild projected schedule from the reverted entry forward
+    if (revertedPrincipal > 0) {
+      const nextMonthDate = new Date(entry.payment_date);
+      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+
+      const schedules = this.paymentSchedules.calculatePaymentSchedule(loan, {
+        startFromPaymentNumber: entry.payment_number + 1,
+        startingPrincipal: revertedPrincipal,
+        startDate: nextMonthDate,
+      });
+
+      if (schedules.length > 0) {
+        await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
+      }
+    }
+
+    // Re-apply any lump sums that were scheduled after the deleted one
+    for (const ls of laterLumpSums) {
+      await this.reapplyLumpSumToSchedule(loanId, loan, ls.amount, ls.date);
+    }
+
+    await this.paymentSchedules.processAllPendingPayments(loanId);
+    return this.findOne(userId, loanId);
+  }
+
+  private async reapplyLumpSumToSchedule(
+    loanId: BigInt,
+    loan: any,
+    amount: number,
+    date: string,
+  ) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+
+    const rows = await this.db.query(
+      `SELECT id, payment_number, remaining_principal, payment_date
+       FROM payment_schedules
+       WHERE loan_id = $1
+         AND EXTRACT(year FROM payment_date) = $2
+         AND EXTRACT(month FROM payment_date) = $3
+       ORDER BY payment_number ASC LIMIT 1`,
+      [loanId, year, month],
+    );
+
+    if (!rows[0]) return;
+    const entry = rows[0];
+
+    const newPrincipal = Math.max(0, Number(entry.remaining_principal) - amount);
+    const actualReduction = Number(entry.remaining_principal) - newPrincipal;
+
+    await this.db.query(
+      `UPDATE payment_schedules
+       SET remaining_principal = $1,
+           extra_payment       = extra_payment + $2,
+           principal_paid      = principal_paid + $2
+       WHERE id = $3`,
+      [newPrincipal, actualReduction, entry.id],
+    );
+
+    await this.db.query(
+      `DELETE FROM payment_schedules
+       WHERE loan_id = $1 AND (payment_number > $2 OR (payment_number = $2 AND id != $3))`,
+      [loanId, entry.payment_number, entry.id],
+    );
+
+    if (newPrincipal > 0) {
+      const nextMonthDate = new Date(entry.payment_date);
+      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+
+      const schedules = this.paymentSchedules.calculatePaymentSchedule(loan, {
+        startFromPaymentNumber: entry.payment_number + 1,
+        startingPrincipal: newPrincipal,
+        startDate: nextMonthDate,
+      });
+
+      if (schedules.length > 0) {
+        await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
+      }
+    }
+  }
+
   remove(userId: BigInt, loanId: BigInt) {
     return this.db.query(
       `

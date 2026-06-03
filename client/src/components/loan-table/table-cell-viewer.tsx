@@ -19,7 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
 import { PercentageInput } from './percentage-input'
 import { formToDb, tableToForm } from '@/lib/utils'
-import { useCreateLoan, useUpdateLoan, useApplyLumpSum, useLoanLumpSums } from '@/lib/api/loans'
+import { useCreateLoan, useUpdateLoan, useApplyLumpSum, useLoanLumpSums, useDeleteLumpSum } from '@/lib/api/loans'
 import { useActiveSimulation, useSimulation } from '@/lib/api/simulations'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -44,6 +44,7 @@ export function TableCellViewer({
   const createLoan = useCreateLoan()
   const updateLoan = useUpdateLoan()
   const applyLumpSum = useApplyLumpSum()
+  const deleteLumpSum = useDeleteLumpSum()
   const lumpSums = useLoanLumpSums(!isNewLoan ? data?.id : undefined)
   const activeSimulation = useActiveSimulation()
   const activeSimId = isSimulationControlled ? activeSimulation.data?.active_simulation_id : undefined
@@ -94,6 +95,16 @@ export function TableCellViewer({
       }
     } catch (error: any) {
       toast.error('Unable to save loan')
+    }
+  }
+
+  const handleDeleteLumpSum = async (lumpSumId: number) => {
+    if (!data?.id) return
+    try {
+      await deleteLumpSum.mutateAsync({ loanId: data.id, lumpSumId })
+      toast.success('Lump sum payment removed!')
+    } catch {
+      toast.error('Unable to remove lump sum payment')
     }
   }
 
@@ -263,9 +274,19 @@ export function TableCellViewer({
                       <div className='flex flex-col gap-1'>
                         <p className='text-xs font-medium text-muted-foreground'>Applied</p>
                         {lumpSums.data.map((ls) => (
-                          <div key={ls.id} className='flex justify-between text-xs'>
+                          <div key={ls.id} className='flex justify-between items-center text-xs'>
                             <span className='text-muted-foreground'>{formatDate(new Date(ls.date))}</span>
-                            <span className='font-medium'>{formatCurrency(ls.amount)}</span>
+                            <div className='flex items-center gap-2'>
+                              <span className='font-medium'>{formatCurrency(ls.amount)}</span>
+                              <button
+                                type='button'
+                                onClick={() => handleDeleteLumpSum(ls.id)}
+                                className='text-muted-foreground hover:text-destructive transition-colors'
+                                disabled={deleteLumpSum.isPending}
+                              >
+                                &times;
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
