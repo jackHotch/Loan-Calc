@@ -83,6 +83,48 @@ export const useApplyLumpSum = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] })
       queryClient.invalidateQueries({ queryKey: ['loans', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['loans', 'schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.id, 'lump-sums'] })
+    },
+  })
+}
+
+export type LoanLumpSum = {
+  id: number
+  amount: number
+  date: string
+}
+
+export const useLoanLumpSums = (loanId: string | undefined) => {
+  const axios = useAxios()
+
+  return useQuery<LoanLumpSum[], ApiError>({
+    queryKey: ['loans', loanId, 'lump-sums'],
+    queryFn: async () => {
+      const response = await axios.get<LoanLumpSum[]>(`/loans/${loanId}/lump-sums`)
+      return response.data
+    },
+    enabled: !!loanId,
+  })
+}
+
+export type LoanScheduleEntry = {
+  loan_id: number
+  name: string
+  payment_number: number
+  payment_date: string
+  remaining_principal: number
+  is_actual: boolean
+}
+
+export const useLoanSchedules = () => {
+  const axios = useAxios()
+
+  return useQuery<LoanScheduleEntry[], ApiError>({
+    queryKey: ['loans', 'schedules'],
+    queryFn: async () => {
+      const response = await axios.get<LoanScheduleEntry[]>('/loans/schedules')
+      return response.data
     },
   })
 }

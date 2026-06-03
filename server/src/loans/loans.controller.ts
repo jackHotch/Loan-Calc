@@ -40,6 +40,16 @@ export class LoansController {
     return this.loansService.getProgress(userId, body?.loan_ids);
   }
 
+  @Get('/schedules')
+  getSchedules(@User() userId: BigInt) {
+    return this.loansService.getAllSchedules(userId);
+  }
+
+  @Get(':id/lump-sums')
+  getLumpSums(@User() userId: BigInt, @Param('id') id: string) {
+    return this.loansService.getLumpSums(userId, BigInt(id));
+  }
+
   @Get(':id')
   findOne(@User() userId: BigInt, @Param('id') id: string) {
     return this.loansService.findOne(userId, BigInt(id));
