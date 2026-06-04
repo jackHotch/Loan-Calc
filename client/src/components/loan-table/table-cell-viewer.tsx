@@ -186,6 +186,16 @@ export function TableCellViewer({
                     onChange={(val) => form.setValue('starting_principal', val)}
                   />
                 </div>
+                <div className='flex flex-col gap-3'>
+                  <Label htmlFor='accrued_interest'>Unpaid Interest</Label>
+                  <CurrencyInput
+                    defaultValue={form.getValues('accrued_interest') ?? 0}
+                    onChange={(val) => form.setValue('accrued_interest', val)}
+                  />
+                  <p className='text-xs text-muted-foreground'>
+                    Interest accrued before repayment (e.g. while in school). Leave at $0 if none.
+                  </p>
+                </div>
               </>
             ) : (
               <div className='flex flex-col gap-3'>

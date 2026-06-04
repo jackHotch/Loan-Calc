@@ -34,4 +34,9 @@ export class CreateLoanDto {
 
   @IsNumber()
   payment_day_of_month: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  accrued_interest?: number;
 }

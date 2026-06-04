@@ -29,6 +29,11 @@ export class PaymentScheduleService {
       : new Date(loan.start_date);
 
     let remainingPrincipal = startingPrincipal;
+    let outstandingInterest = new Decimal(
+      options.startingOutstandingInterest !== undefined
+        ? options.startingOutstandingInterest
+        : (loan.accrued_interest ?? 0),
+    );
     let paymentDate = getNewPaymentDate(
       new Date(startDate),
       loan.payment_day_of_month,
@@ -41,7 +46,10 @@ export class PaymentScheduleService {
 
     const maxPayments = 1000;
 
-    while (remainingPrincipal.gt(0.01) && paymentNumber < maxPayments) {
+    while (
+      (remainingPrincipal.gt(0.01) || outstandingInterest.gt(0.01)) &&
+      paymentNumber < maxPayments
+    ) {
       let extraPayment: Decimal =
         loan.extra_payment &&
         (!loan.extra_payment_start_date ||
@@ -49,15 +57,23 @@ export class PaymentScheduleService {
           ? new Decimal(loan.extra_payment)
           : new Decimal(0);
 
-      const monthlyInterestPaid = remainingPrincipal
-        .mul(monthlyRate)
+      outstandingInterest = outstandingInterest
+        .plus(remainingPrincipal.mul(monthlyRate))
         .toDecimalPlaces(2);
 
-      let totalPayment: Decimal = new Decimal(loan.minimum_payment).plus(
+      const totalPayment: Decimal = new Decimal(loan.minimum_payment).plus(
         extraPayment,
       );
 
-      let monthlyPrincipalPaid = new Decimal(totalPayment)
+      const monthlyInterestPaid = Decimal.min(
+        totalPayment,
+        outstandingInterest,
+      ).toDecimalPlaces(2);
+      outstandingInterest = outstandingInterest
+        .minus(monthlyInterestPaid)
+        .toDecimalPlaces(2);
+
+      let monthlyPrincipalPaid = totalPayment
         .minus(monthlyInterestPaid)
         .toDecimalPlaces(2);
 
@@ -75,6 +91,9 @@ export class PaymentScheduleService {
         interest_paid: monthlyInterestPaid.toDecimalPlaces(2).toNumber(),
         extra_payment: extraPayment.toDecimalPlaces(2).toNumber(),
         remaining_principal: remainingPrincipal.toDecimalPlaces(2).toNumber(),
+        remaining_outstanding_interest: outstandingInterest
+          .toDecimalPlaces(2)
+          .toNumber(),
       });
 
       paymentDate.setMonth(paymentDate.getMonth() + 1);
@@ -93,6 +112,7 @@ export class PaymentScheduleService {
       minimum_payment: loan.minimum_payment,
       extra_payment: loan.extra_payment,
       extra_payment_start_date: loan.extra_payment_start_date,
+      accrued_interest: loan.accrued_interest ?? 0,
     };
 
     const schedule: PaymentScheduleEntry[] =
@@ -108,7 +128,7 @@ export class PaymentScheduleService {
   async getLastActualPayment(loanId: BigInt): Promise<any> {
     const result = await this.db.query(
       `
-      SELECT payment_number, payment_date, remaining_principal
+      SELECT payment_number, payment_date, remaining_principal, remaining_outstanding_interest
       FROM payment_schedules
       WHERE loan_id = $1
       AND is_actual = TRUE
@@ -132,20 +152,25 @@ export class PaymentScheduleService {
       minimum_payment: loan.minimum_payment,
       extra_payment: loan.extra_payment,
       extra_payment_start_date: loan.extra_payment_start_date,
+      accrued_interest: loan.accrued_interest ?? 0,
     };
 
     let startFromPaymentNumber: number;
     let startingPrincipal: number;
+    let startingOutstandingInterest: number;
     let startDate: Date;
 
     if (lastActualPayment) {
       startFromPaymentNumber = lastActualPayment.payment_number + 1;
       startingPrincipal = lastActualPayment.remaining_principal;
+      startingOutstandingInterest =
+        lastActualPayment.remaining_outstanding_interest ?? 0;
       startDate = new Date(lastActualPayment.payment_date);
       startDate.setMonth(startDate.getMonth() + 1);
     } else {
       startFromPaymentNumber = 1;
       startingPrincipal = loan.starting_principal;
+      startingOutstandingInterest = loan.accrued_interest ?? 0;
       startDate = new Date(loan.start_date);
     }
 
@@ -173,6 +198,7 @@ export class PaymentScheduleService {
         startFromPaymentNumber,
         startingPrincipal,
         startDate,
+        startingOutstandingInterest,
       },
     );
 
@@ -191,8 +217,8 @@ export class PaymentScheduleService {
     const idColumn = type === 'loan' ? 'loan_id' : 'simulation_loan_id';
     const values = schedule
       .map((_, i) => {
-        const offset = i * 6 + 2;
-        return `($1, $${offset}, $${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5})`;
+        const offset = i * 7 + 2;
+        return `($1, $${offset}, $${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
       })
       .join(',');
 
@@ -205,13 +231,14 @@ export class PaymentScheduleService {
         p.interest_paid,
         p.extra_payment,
         p.remaining_principal,
+        p.remaining_outstanding_interest,
       ]),
     ];
 
     await this.db.query(
       `
-      INSERT INTO payment_schedules (${idColumn}, payment_number, payment_date, principal_paid, 
-        interest_paid, extra_payment, remaining_principal)
+      INSERT INTO payment_schedules (${idColumn}, payment_number, payment_date, principal_paid,
+        interest_paid, extra_payment, remaining_principal, remaining_outstanding_interest)
         VALUES ${values}
         `,
       params,
@@ -231,15 +258,16 @@ export class PaymentScheduleService {
 
     return await this.db.query(
       `
-      SELECT 
+      SELECT
         id,
-        ${idColumn}, 
-        payment_number, 
+        ${idColumn},
+        payment_number,
         principal_paid,
         interest_paid,
         extra_payment,
         total_payment,
         remaining_principal,
+        remaining_outstanding_interest,
         payment_date,
         is_actual
       FROM payment_schedules
@@ -252,7 +280,7 @@ export class PaymentScheduleService {
 
   async recalculateScheduleForLoan(loanId: BigInt) {
     const rows = await this.db.query(
-      `SELECT id, user_id, name, lender, starting_principal, interest_rate, minimum_payment,
+      `SELECT id, user_id, name, lender, starting_principal, accrued_interest, interest_rate, minimum_payment,
               extra_payment, extra_payment_start_date, start_date, payment_day_of_month
        FROM loans WHERE id = $1`,
       [loanId],

@@ -27,6 +27,7 @@ export function dbToTable(loan: LoanDb): LoanTable {
     interest_rate: loan.interest_rate ? `${loan.interest_rate}%` : '',
     starting_principal: formatCurrency(loan.starting_principal),
     current_principal: formatCurrency(loan.current_principal),
+    current_outstanding_interest: formatCurrency(loan.current_outstanding_interest ?? 0),
     minimum_payment: formatCurrency(loan.minimum_payment),
     extra_payment: formatCurrency(loan.extra_payment || 0),
     extra_payment_start_date: formatDate(loan.extra_payment_start_date),
@@ -91,11 +92,12 @@ function getNextPaymentDate(dayOfMonth: number, startDate: string): string {
 
 export function formToDb(
   form: LoanForm,
-): Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'total_interest_paid' | 'total_amount_paid'> {
+): Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'current_outstanding_interest' | 'total_interest_paid' | 'total_amount_paid'> {
   return {
     name: form.name,
     lender: form.lender || null,
     starting_principal: form.starting_principal,
+    accrued_interest: form.accrued_interest ?? 0,
     interest_rate: form.interest_rate,
     minimum_payment: form.minimum_payment,
     extra_payment: form.extra_payment ?? null,
@@ -150,6 +152,8 @@ export function calculateTotals(loans: LoanDb[]): LoanTable {
     lender: '',
     starting_principal: 0,
     current_principal: 0,
+    accrued_interest: 0,
+    current_outstanding_interest: 0,
     interest_rate: null,
     minimum_payment: 0,
     extra_payment: 0,
@@ -164,6 +168,7 @@ export function calculateTotals(loans: LoanDb[]): LoanTable {
   for (const loan of loans) {
     totals.starting_principal += Number(loan.starting_principal)
     totals.current_principal += Number(loan.current_principal)
+    totals.current_outstanding_interest += Number(loan.current_outstanding_interest ?? 0)
     totals.minimum_payment += Number(loan.minimum_payment)
     totals.extra_payment += Number(loan.extra_payment)
     totals.total_interest_paid += Number(loan.total_interest_paid)

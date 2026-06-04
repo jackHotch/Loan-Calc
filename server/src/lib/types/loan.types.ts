@@ -7,6 +7,8 @@ export const loanDbSchema = z.object({
   lender: z.string().nullable(),
   starting_principal: z.number(),
   current_principal: z.number(),
+  accrued_interest: z.number(),
+  current_outstanding_interest: z.number(),
   interest_rate: z.number(),
   minimum_payment: z.number(),
   extra_payment: z.number().nullable(),

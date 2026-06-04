@@ -169,6 +169,12 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       sortingFn: 'alphanumeric',
     },
     {
+      accessorKey: 'current_outstanding_interest',
+      header: ({ column }) => <SortableHeader column={column} title='Outstanding Interest' />,
+      cell: ({ row }) => <div>{row.original.current_outstanding_interest}</div>,
+      sortingFn: 'alphanumeric',
+    },
+    {
       accessorKey: 'interest_rate',
       header: ({ column }) => <SortableHeader column={column} title='Interest Rate' />,
       cell: ({ row }) => <div>{row.original.interest_rate}</div>,
@@ -393,6 +399,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
                         name: 'Totals',
                         starting_principal: totals.starting_principal,
                         current_principal: totals.current_principal,
+                        current_outstanding_interest: totals.current_outstanding_interest,
                         minimun_payment: totals.minimum_payment,
                         extra_payment: totals.extra_payment,
                         payoff_date: lastPayoffDate,
