@@ -192,9 +192,6 @@ export function TableCellViewer({
                     defaultValue={form.getValues('accrued_interest') ?? 0}
                     onChange={(val) => form.setValue('accrued_interest', val)}
                   />
-                  <p className='text-xs text-muted-foreground'>
-                    Interest accrued before repayment (e.g. while in school). Leave at $0 if none.
-                  </p>
                 </div>
               </>
             ) : (
