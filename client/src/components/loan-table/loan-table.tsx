@@ -34,7 +34,7 @@ import { useActiveSimulation, useAllSimulationSummaries } from '@/lib/api/simula
 import { DeleteLoans } from './delete-loans'
 import { toast } from 'sonner'
 import { SortableHeader } from './sortable-header'
-import { sortDateString } from '@/lib/utils'
+import { formatCurrency, formatDate, sortDateString } from '@/lib/utils'
 
 export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema[]; totals: LoanTableSchema }) {
   const [data, setData] = useState(() => initialData || [])
@@ -49,11 +49,29 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
   const { data: activeSimInfo } = useActiveSimulation()
   const { data: summaries } = useAllSimulationSummaries()
 
-  const simulationLoanIds = useMemo(() => {
-    if (!activeSimInfo?.active_simulation_id || !summaries) return new Set<string>()
-    const activeSim = summaries.find((s) => s.simulation.id === activeSimInfo.active_simulation_id)
-    return new Set(activeSim?.perLoan.map((pl) => pl.loan_id) ?? [])
+  const activeSim = useMemo(() => {
+    if (!activeSimInfo?.active_simulation_id || !summaries) return null
+    return summaries.find((s) => s.simulation.id === activeSimInfo.active_simulation_id) ?? null
   }, [activeSimInfo, summaries])
+
+  const simulationLoanIds = useMemo(() => {
+    return new Set(activeSim?.perLoan.map((pl) => pl.loan_id) ?? [])
+  }, [activeSim])
+
+  const lastPayoffDate = useMemo(() => {
+    const parseFormatted = (s: string) => {
+      const [month, day, year] = s.split('/')
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).getTime()
+    }
+    const dates = data.map((l) => l.payoff_date).filter(Boolean) as string[]
+    if (!dates.length) return ''
+    return dates.reduce((latest, d) => (parseFormatted(d) > parseFormatted(latest) ? d : latest))
+  }, [data])
+
+  const simPerLoanMap = useMemo(() => {
+    if (!activeSim) return new Map<string, (typeof activeSim.perLoan)[number]>()
+    return new Map(activeSim.perLoan.map((pl) => [pl.loan_id, pl]))
+  }, [activeSim])
 
   useEffect(() => {
     if (initialData) {
@@ -192,18 +210,55 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       cell: ({ row }) => <div>{row.original.payoff_date}</div>,
       sortingFn: sortDateString,
     },
+    ...(activeSim
+      ? ([{
+          id: 'sim_payoff_date',
+          accessorFn: (row) => {
+            const perLoan = simPerLoanMap.get(row.id)
+            if (!perLoan?.payoff_date) return null
+            return formatDate(new Date(perLoan.payoff_date))
+          },
+          header: ({ column }) => <SortableHeader column={column} title='Sim Payoff Date' />,
+          cell: ({ row }) => <div>{(row.getValue('sim_payoff_date') as string | null) ?? '—'}</div>,
+          sortingFn: sortDateString,
+        }] as ColumnDef<LoanTableSchema>[])
+      : []),
     {
       accessorKey: 'total_interest_paid',
       header: ({ column }) => <SortableHeader column={column} title='Total Interest Paid' />,
       cell: ({ row }) => <div>{row.original.total_interest_paid}</div>,
       sortingFn: 'alphanumeric',
     },
+    ...(activeSim
+      ? ([{
+          id: 'sim_total_interest_paid',
+          accessorFn: (row) => simPerLoanMap.get(row.id)?.total_interest_paid ?? null,
+          header: ({ column }) => <SortableHeader column={column} title='Sim Total Interest Paid' />,
+          cell: ({ row }) => {
+            const val = row.getValue('sim_total_interest_paid') as number | null
+            return <div>{val != null ? formatCurrency(val) : '—'}</div>
+          },
+          sortingFn: 'alphanumeric',
+        }] as ColumnDef<LoanTableSchema>[])
+      : []),
     {
       accessorKey: 'total_amount_paid',
       header: ({ column }) => <SortableHeader column={column} title='Total Amount Paid' />,
       cell: ({ row }) => <div>{row.original.total_amount_paid}</div>,
       sortingFn: 'alphanumeric',
     },
+    ...(activeSim
+      ? ([{
+          id: 'sim_total_paid',
+          accessorFn: (row) => simPerLoanMap.get(row.id)?.total_paid ?? null,
+          header: ({ column }) => <SortableHeader column={column} title='Sim Total Paid' />,
+          cell: ({ row }) => {
+            const val = row.getValue('sim_total_paid') as number | null
+            return <div>{val != null ? formatCurrency(val) : '—'}</div>
+          },
+          sortingFn: 'alphanumeric',
+        }] as ColumnDef<LoanTableSchema>[])
+      : []),
     {
       id: 'actions',
       cell: ({ row }) => {
@@ -239,7 +294,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       },
       enableHiding: false,
     },
-  ], [handleDeleteLoan, simulationLoanIds])
+  ], [handleDeleteLoan, simulationLoanIds, activeSim, simPerLoanMap])
 
   const table = useReactTable({
     data,
@@ -340,8 +395,16 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
                         current_principal: totals.current_principal,
                         minimun_payment: totals.minimum_payment,
                         extra_payment: totals.extra_payment,
+                        payoff_date: lastPayoffDate,
                         total_interest_paid: totals.total_interest_paid,
                         total_amount_paid: totals.total_amount_paid,
+                        ...(activeSim && {
+                          sim_payoff_date: activeSim.totals.payoff_date
+                            ? formatDate(new Date(activeSim.totals.payoff_date))
+                            : '—',
+                          sim_total_interest_paid: formatCurrency(activeSim.totals.total_interest_paid),
+                          sim_total_paid: formatCurrency(activeSim.totals.total_paid),
+                        }),
                       }
 
                       return <TableCell key={column.id}>{totalsMap[column.id] || ''}</TableCell>
