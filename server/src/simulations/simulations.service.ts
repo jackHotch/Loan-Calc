@@ -85,6 +85,11 @@ export class SimulationsService {
         return {
           ...l,
           simulationBalance: new Decimal(l.current_principal),
+          simulationOutstandingInterest: new Decimal(
+            lastActualPayment
+              ? (lastActualPayment.remaining_outstanding_interest ?? 0)
+              : (l.accrued_interest ?? 0),
+          ),
           payoffOrder: -1,
           extraPaymentTarget: false,
           simulationStartdate: simulationStartDate,
@@ -102,7 +107,10 @@ export class SimulationsService {
     const appliedLumpSumIndices = new Set<number>();
 
     while (
-      loanStates.some((s) => s.simulationBalance.gt(0)) &&
+      loanStates.some(
+        (s) =>
+          s.simulationBalance.gt(0) || s.simulationOutstandingInterest.gt(0),
+      ) &&
       monthCount < 600
     ) {
       monthCount++;
@@ -135,7 +143,11 @@ export class SimulationsService {
       }
 
       for (const loan of loanStates) {
-        if (loan.simulationBalance.lte(0)) continue;
+        if (
+          loan.simulationBalance.lte(0) &&
+          loan.simulationOutstandingInterest.lte(0)
+        )
+          continue;
 
         const paymentDate = new Date(loan.simulationStartdate);
         paymentDate.setMonth(paymentDate.getMonth() + monthCount);
@@ -157,15 +169,23 @@ export class SimulationsService {
           .div(12)
           .toDecimalPlaces(3);
 
-        const monthlyInterestPaid = loan.simulationBalance
-          .mul(monthlyRate)
+        loan.simulationOutstandingInterest = loan.simulationOutstandingInterest
+          .plus(loan.simulationBalance.mul(monthlyRate))
           .toDecimalPlaces(2);
 
-        let totalPayment = new Decimal(loan.minimum_payment).plus(
+        const totalPayment = new Decimal(loan.minimum_payment).plus(
           extraPaymentApplied,
         );
 
-        let monthlyPrincipalPaid = new Decimal(totalPayment)
+        const monthlyInterestPaid = Decimal.min(
+          totalPayment,
+          loan.simulationOutstandingInterest,
+        ).toDecimalPlaces(2);
+        loan.simulationOutstandingInterest = loan.simulationOutstandingInterest
+          .minus(monthlyInterestPaid)
+          .toDecimalPlaces(2);
+
+        let monthlyPrincipalPaid = totalPayment
           .minus(monthlyInterestPaid)
           .toDecimalPlaces(2);
 
@@ -187,13 +207,19 @@ export class SimulationsService {
           interest_paid: monthlyInterestPaid.toDecimalPlaces(2).toNumber(),
           extra_payment: extraPaymentApplied.toDecimalPlaces(2).toNumber(),
           remaining_principal: remainingPrincipal.toDecimalPlaces(2).toNumber(),
+          remaining_outstanding_interest:
+            loan.simulationOutstandingInterest.toDecimalPlaces(2).toNumber(),
         });
 
         loan.simulationBalance = remainingPrincipal;
       }
 
       for (const s of loanStates) {
-        if (s.simulationBalance.eq(0) && s.payoffOrder === -1) {
+        if (
+          s.simulationBalance.lte(0.01) &&
+          s.simulationOutstandingInterest.lte(0.01) &&
+          s.payoffOrder === -1
+        ) {
           s.payoffOrder = payoffOrderCounter++;
           if (cascade) {
             cascadeBonus = cascadeBonus.plus(s.minimum_payment);

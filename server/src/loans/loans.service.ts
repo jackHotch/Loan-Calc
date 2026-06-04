@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
 import { ApplyLumpSumDto } from './dto/apply-lump-sum.dto';
+import { RecalibrateLoanDto } from './dto/recalibrate-loan.dto';
 import { DatabaseService } from '../database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { LoanDb } from 'src/lib/types/loan.types';
@@ -17,9 +18,9 @@ export class LoansService {
   async create(userId: BigInt, loan: CreateLoanDto) {
     const result = await this.db.query(
       `
-      INSERT INTO loans (user_id, name, lender, starting_principal, 
-        interest_rate, minimum_payment, extra_payment, extra_payment_start_date, start_date, payment_day_of_month)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO loans (user_id, name, lender, starting_principal,
+        interest_rate, minimum_payment, extra_payment, extra_payment_start_date, start_date, payment_day_of_month, accrued_interest)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *;`,
       [
         userId,
@@ -32,6 +33,7 @@ export class LoansService {
         loan.extra_payment_start_date,
         loan.start_date,
         loan.payment_day_of_month,
+        loan.accrued_interest ?? 0,
       ],
     );
 
@@ -57,6 +59,7 @@ export class LoansService {
         l.name,
         l.lender,
         l.starting_principal,
+        l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
@@ -66,13 +69,14 @@ export class LoansService {
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
         COALESCE(last_actual.remaining_principal, l.starting_principal) AS current_principal,
+        COALESCE(last_actual.remaining_outstanding_interest, l.accrued_interest) AS current_outstanding_interest,
         last_schedule.payment_date AS payoff_date
       FROM
         loans l
       LEFT JOIN
         payment_schedules ps ON l.id = ps.loan_id
       LEFT JOIN LATERAL (
-        SELECT remaining_principal
+        SELECT remaining_principal, remaining_outstanding_interest
         FROM payment_schedules
         WHERE loan_id = l.id
           AND is_actual = true
@@ -94,6 +98,7 @@ export class LoansService {
         l.name,
         l.lender,
         l.starting_principal,
+        l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
@@ -101,6 +106,7 @@ export class LoansService {
         l.start_date,
         l.extra_payment_start_date,
         last_actual.remaining_principal,
+        last_actual.remaining_outstanding_interest,
         last_schedule.payment_date
       `,
       [userId],
@@ -116,6 +122,7 @@ export class LoansService {
         l.name,
         l.lender,
         l.starting_principal,
+        l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
@@ -125,13 +132,14 @@ export class LoansService {
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
         COALESCE(last_actual.remaining_principal, l.starting_principal) AS current_principal,
+        COALESCE(last_actual.remaining_outstanding_interest, l.accrued_interest) AS current_outstanding_interest,
         last_schedule.payment_date AS payoff_date
       FROM
         loans l
       LEFT JOIN
         payment_schedules ps ON l.id = ps.loan_id
       LEFT JOIN LATERAL (
-        SELECT remaining_principal
+        SELECT remaining_principal, remaining_outstanding_interest
         FROM payment_schedules
         WHERE loan_id = l.id
           AND is_actual = true
@@ -154,6 +162,7 @@ export class LoansService {
         l.name,
         l.lender,
         l.starting_principal,
+        l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
         l.extra_payment,
@@ -161,6 +170,7 @@ export class LoansService {
         l.start_date,
         l.extra_payment_start_date,
         last_actual.remaining_principal,
+        last_actual.remaining_outstanding_interest,
         last_schedule.payment_date
       `,
       [userId, loanId],
@@ -356,7 +366,7 @@ export class LoansService {
     const month = d.getMonth() + 1;
 
     const rows = await this.db.query(
-      `SELECT id, payment_number, remaining_principal, payment_date
+      `SELECT id, payment_number, remaining_principal, remaining_outstanding_interest, payment_date
        FROM payment_schedules
        WHERE loan_id = $1
          AND EXTRACT(year FROM payment_date) = $2
@@ -393,7 +403,7 @@ export class LoansService {
     );
 
     const loanRows = await this.db.query(
-      `SELECT id, starting_principal, interest_rate, minimum_payment,
+      `SELECT id, starting_principal, accrued_interest, interest_rate, minimum_payment,
               extra_payment, extra_payment_start_date, start_date, payment_day_of_month
        FROM loans WHERE id = $1 AND user_id = $2`,
       [loanId, userId],
@@ -409,6 +419,7 @@ export class LoansService {
         startFromPaymentNumber: entry.payment_number + 1,
         startingPrincipal: newPrincipal,
         startDate: nextMonthDate,
+        startingOutstandingInterest: Number(entry.remaining_outstanding_interest ?? 0),
       });
 
       if (schedules.length > 0) {
@@ -435,7 +446,7 @@ export class LoansService {
 
   async deleteLumpSum(userId: BigInt, loanId: BigInt, lumpSumId: BigInt) {
     const loanRows = await this.db.query(
-      `SELECT id, starting_principal, interest_rate, minimum_payment,
+      `SELECT id, starting_principal, accrued_interest, interest_rate, minimum_payment,
               extra_payment, extra_payment_start_date, start_date, payment_day_of_month
        FROM loans WHERE id = $1 AND user_id = $2`,
       [loanId, userId],
@@ -465,7 +476,8 @@ export class LoansService {
     const month = d.getMonth() + 1;
 
     const entry = await this.db.queryOne(
-      `SELECT id, payment_number, remaining_principal::float AS remaining_principal, payment_date
+      `SELECT id, payment_number, remaining_principal::float AS remaining_principal,
+              remaining_outstanding_interest::float AS remaining_outstanding_interest, payment_date
        FROM payment_schedules
        WHERE loan_id = $1
          AND EXTRACT(year FROM payment_date) = $2
@@ -507,6 +519,7 @@ export class LoansService {
         startFromPaymentNumber: entry.payment_number + 1,
         startingPrincipal: revertedPrincipal,
         startDate: nextMonthDate,
+        startingOutstandingInterest: Number(entry.remaining_outstanding_interest ?? 0),
       });
 
       if (schedules.length > 0) {
@@ -534,7 +547,7 @@ export class LoansService {
     const month = d.getMonth() + 1;
 
     const rows = await this.db.query(
-      `SELECT id, payment_number, remaining_principal, payment_date
+      `SELECT id, payment_number, remaining_principal, remaining_outstanding_interest, payment_date
        FROM payment_schedules
        WHERE loan_id = $1
          AND EXTRACT(year FROM payment_date) = $2
@@ -572,12 +585,57 @@ export class LoansService {
         startFromPaymentNumber: entry.payment_number + 1,
         startingPrincipal: newPrincipal,
         startDate: nextMonthDate,
+        startingOutstandingInterest: Number(entry.remaining_outstanding_interest ?? 0),
       });
 
       if (schedules.length > 0) {
         await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
       }
     }
+  }
+
+  async recalibrate(userId: BigInt, loanId: BigInt, dto: RecalibrateLoanDto) {
+    const loanRows = await this.db.query(
+      `SELECT id, interest_rate, minimum_payment, extra_payment, extra_payment_start_date,
+              start_date, payment_day_of_month
+       FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
+    );
+    if (!loanRows[0]) throw new NotFoundException('Loan not found');
+
+    await this.db.query(
+      `UPDATE loans
+       SET starting_principal = COALESCE($1, starting_principal),
+           accrued_interest   = COALESCE($2, accrued_interest)
+       WHERE id = $3`,
+      [dto.current_principal ?? null, dto.accrued_interest ?? null, loanId],
+    );
+
+    await this.db.query(
+      `DELETE FROM payment_schedules WHERE loan_id = $1`,
+      [loanId],
+    );
+
+    const updatedLoan = await this.db.query(
+      `SELECT id, starting_principal, accrued_interest, interest_rate, minimum_payment,
+              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
+       FROM loans WHERE id = $1`,
+      [loanId],
+    );
+    const loan = updatedLoan[0];
+    const schedule = this.paymentSchedules.calculatePaymentSchedule(loan, {
+      startingPrincipal: Number(loan.starting_principal),
+      startingOutstandingInterest: Number(loan.accrued_interest),
+      startDate: new Date(),
+      startFromPaymentNumber: 1,
+    });
+
+    if (schedule.length > 0) {
+      await this.paymentSchedules.saveSchedule(loanId, 'loan', schedule);
+    }
+
+    await this.paymentSchedules.processAllPendingPayments(loanId);
+    return this.findOne(userId, loanId);
   }
 
   remove(userId: BigInt, loanId: BigInt) {

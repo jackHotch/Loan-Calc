@@ -6,6 +6,7 @@ export interface PaymentScheduleInput {
   minimum_payment: number;
   extra_payment: number | null;
   extra_payment_start_date: Date | null;
+  accrued_interest?: number;
 }
 
 export interface PaymentScheduleEntry {
@@ -15,10 +16,12 @@ export interface PaymentScheduleEntry {
   interest_paid: number;
   extra_payment: number;
   remaining_principal: number;
+  remaining_outstanding_interest: number;
 }
 
 export interface CalculateScheduleOptions {
   startFromPaymentNumber?: number;
   startingPrincipal?: number;
   startDate?: Date | string;
+  startingOutstandingInterest?: number;
 }
