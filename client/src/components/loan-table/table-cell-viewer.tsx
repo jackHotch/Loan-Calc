@@ -139,12 +139,12 @@ export function TableCellViewer({
       direction={isMobile ? 'bottom' : 'right'}
     >
       <DrawerTrigger asChild>{children}</DrawerTrigger>
-      <DrawerContent className='!w-[600px]'>
-        <DrawerHeader className='gap-1'>
+      <DrawerContent className={isMobile ? 'flex flex-col max-h-[90vh]' : 'flex flex-col h-screen w-150!'}>
+        <DrawerHeader className='gap-1 shrink-0'>
           <DrawerTitle>{isNewLoan ? 'New Loan' : 'Edit Loan'}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <div className='flex flex-col gap-4 px-4 text-sm'>
+        <div className='flex-1 overflow-y-auto flex flex-col gap-4 px-4 text-sm'>
           <form key={formKey.current} className='flex flex-col gap-4'>
             <div className='flex flex-col gap-3'>
               <Label htmlFor='name'>Loan Name</Label>
@@ -166,7 +166,7 @@ export function TableCellViewer({
             </div>
             {isNewLoan ? (
               <>
-                <div className='grid grid-cols-2 gap-4'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                   <div className='flex flex-col gap-3'>
                     <Label htmlFor='start_date'>Start Date</Label>
                     <DatePicker value={form.watch('start_date')} onChange={(val) => form.setValue('start_date', val)} />
@@ -204,7 +204,7 @@ export function TableCellViewer({
               </div>
             )}
 
-            <div className='grid grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='minimum_payment'>Minimum Payment</Label>
                 <CurrencyInput
@@ -223,7 +223,7 @@ export function TableCellViewer({
             {isSimulationControlled && (
               <p className='text-xs text-amber-500'>Extra payment is managed by the active simulation.</p>
             )}
-            <div className='grid grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
               <div className='flex flex-col gap-3'>
                 <Label htmlFor='extra_payment'>Extra Payment</Label>
                 <CurrencyInput
@@ -247,7 +247,7 @@ export function TableCellViewer({
                 {isSimulationControlled && (
                   <p className='text-xs text-amber-500'>Lump sum payments are locked while a simulation is active.</p>
                 )}
-                <div className='grid grid-cols-2 gap-4'>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                   <div className='flex flex-col gap-3'>
                     <Label className='text-xs text-muted-foreground'>Amount</Label>
                     <CurrencyInput
@@ -315,7 +315,7 @@ export function TableCellViewer({
             )}
           </form>
         </div>
-        <DrawerFooter>
+        <DrawerFooter className='shrink-0'>
           <Button onClick={handleSubmit}>{isNewLoan ? 'Add Loan' : 'Save Changes'}</Button>
           <DrawerClose asChild>
             <Button variant='outline'>Cancel</Button>

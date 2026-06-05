@@ -56,7 +56,7 @@ export const Summary = ({ activeSim }: { activeSim?: SimulationSummary | null })
             </div>
           </div>
           <Progress value={percentPaid} className='h-2' />
-          <div className='flex items-center justify-between'>
+          <div className='flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between'>
             <span className='text-muted-foreground text-xs'>{percentPaid?.toFixed(1)}% of total debt paid off</span>
             <span className='text-muted-foreground text-xs'>
               {activeSim ? 'Simulated payoff' : 'Payoff'} on {formatDate(new Date(payoffDate))}
@@ -67,18 +67,18 @@ export const Summary = ({ activeSim }: { activeSim?: SimulationSummary | null })
         <Seperator />
 
         <div className='pt-3'>
-          <div className='grid grid-cols-3 gap-3 text-center'>
+          <div className='grid grid-cols-3 gap-2 text-center'>
             <div className='rounded-lg bg-muted/50 p-2'>
-              <p className='text-muted-foreground text-xs'>Active Loans</p>
-              <p className='text-xl font-bold'>{numberOfLoans}</p>
+              <p className='text-muted-foreground text-[10px] sm:text-xs truncate'>Active Loans</p>
+              <p className='text-lg sm:text-xl font-bold'>{numberOfLoans}</p>
             </div>
             <div className='rounded-lg bg-muted/50 p-2'>
-              <p className='text-muted-foreground text-xs'>{activeSim ? 'Sim Months til Payoff' : 'Months til Payoff'}</p>
-              <p className='text-xl font-bold'>{monthsTilPayoff}</p>
+              <p className='text-muted-foreground text-[10px] sm:text-xs truncate'>{activeSim ? 'Sim Months' : 'Months til Payoff'}</p>
+              <p className='text-lg sm:text-xl font-bold'>{monthsTilPayoff}</p>
             </div>
             <div className='rounded-lg bg-muted/50 p-2'>
-              <p className='text-muted-foreground text-xs'>Next Payment</p>
-              <p className='text-xl font-bold'>{formatCurrency(nextMonthlyPayment)}</p>
+              <p className='text-muted-foreground text-[10px] sm:text-xs truncate'>Next Payment</p>
+              <p className='text-lg sm:text-xl font-bold'>{formatCurrency(nextMonthlyPayment)}</p>
             </div>
           </div>
         </div>
