@@ -367,7 +367,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
         </div>
       </div>
       <div className='relative flex flex-col gap-4 px-4 lg:px-6'>
-        <div className='overflow-x-hidden border'>
+        <div className='overflow-x-auto border'>
           <Table>
             <TableHeader className='bg-muted sticky top-0 z-10'>
               {table.getHeaderGroups().map((headerGroup) => (

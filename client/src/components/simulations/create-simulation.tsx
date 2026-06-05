@@ -247,8 +247,8 @@ export function CreateSimulation() {
   }
 
   return (
-    <div className='grid g-0 grid-cols-[1fr_380px] lg:grid-cols-[1fr_400px] h-min-[calc(100vh - 40px) items-start'>
-      <div className='p-8 flex flex-col border-r gap-12' style={{ height: 'calc(100vh - 64px)', overflowY: 'auto' }}>
+    <div className='grid grid-cols-1 lg:grid-cols-[1fr_400px] items-start'>
+      <div className='p-4 sm:p-6 lg:p-8 flex flex-col lg:border-r gap-8 lg:gap-12 overflow-y-auto lg:h-[calc(100vh-64px)]'>
         <header className='flex flex-col gap-4'>
           <p className='text-label'>
             {activeSimulation?.active_simulation_id == simulationId && (
@@ -259,14 +259,12 @@ export function CreateSimulation() {
             {simulationId ? 'Edit' : 'New'} Simulation
           </p>
 
-          <h1 className='font-display text-5xl font-light'>
-            Build your
-            <br /> payoff strategy
+          <h1 className='font-display text-3xl sm:text-5xl font-light'>
+            Build your payoff strategy
           </h1>
 
           <p className='text-description'>
-            Select which loans to include, choose a repayment strategy,
-            <br /> and see exactly how much time and money you could save.
+            Select which loans to include, choose a repayment strategy, and see exactly how much time and money you could save.
           </p>
         </header>
 
@@ -354,7 +352,7 @@ export function CreateSimulation() {
               return (
                 <div
                   key={key}
-                  className={`${selectedStyles} card cursor-pointer flex-col items-start h-36`}
+                  className={`${selectedStyles} card cursor-pointer flex-col items-start h-auto sm:h-36`}
                   onClick={() => setStrategyType(s.name)}
                 >
                   <p className='text-lg mb-4'>{s.icon}</p>
@@ -480,7 +478,7 @@ export function CreateSimulation() {
         </div>
       </div>
 
-      <div className='p-8 flex flex-col sticky top-0 h-[calc(100vh - var(--header-height))] overflow-y-auto'>
+      <div className='p-4 sm:p-6 lg:p-8 flex flex-col lg:sticky lg:top-0 lg:h-[calc(100vh-var(--header-height))] lg:overflow-y-auto border-t lg:border-t-0 lg:border-l'>
         {createSimulation.isPending || updateSimulation.isPending ? (
           <p>Loading...</p>
         ) : currentSimulationComparison && !isModified ? (
