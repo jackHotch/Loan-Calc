@@ -15,18 +15,32 @@ function getNextPaymentDate(loan: LoanDb): Date {
   return candidate
 }
 
-function computePaymentBreakdown(loan: LoanDb, nextPaymentDate: Date, lumpSumAmount = 0) {
+function getSimExtraAtDate(simulation: Simulation, date: Date): number | undefined {
+  const extraPayments = simulation.extra_payments
+  if (!extraPayments?.length) return undefined
+  const active = [...extraPayments]
+    .filter((ep) => new Date(ep.start_date as unknown as string) <= date)
+    .sort((a, b) => new Date(b.start_date as unknown as string).getTime() - new Date(a.start_date as unknown as string).getTime())
+  return Number(active[0]?.amount ?? 0)
+}
+
+function computePaymentBreakdown(loan: LoanDb, nextPaymentDate: Date, lumpSumAmount = 0, overrideExtra?: number) {
   const monthlyRate = Number(loan.interest_rate) / 100 / 12
   const interest = Number(loan.current_principal) * monthlyRate
-  const extraStartDate = loan.extra_payment_start_date
-    ? new Date(loan.extra_payment_start_date as unknown as string)
-    : null
-  const extraApplies =
-    loan.extra_payment != null &&
-    Number(loan.extra_payment) > 0 &&
-    extraStartDate != null &&
-    extraStartDate <= nextPaymentDate
-  const extra = extraApplies ? Number(loan.extra_payment) : 0
+  let extra: number
+  if (overrideExtra !== undefined) {
+    extra = overrideExtra
+  } else {
+    const extraStartDate = loan.extra_payment_start_date
+      ? new Date(loan.extra_payment_start_date as unknown as string)
+      : null
+    const extraApplies =
+      loan.extra_payment != null &&
+      Number(loan.extra_payment) > 0 &&
+      extraStartDate != null &&
+      extraStartDate <= nextPaymentDate
+    extra = extraApplies ? Number(loan.extra_payment) : 0
+  }
   const total = Number(loan.minimum_payment) + extra + lumpSumAmount
   const principal = Math.max(0, total - interest)
   return { interest, principal, total, extra }
@@ -57,16 +71,18 @@ export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simul
     const sorted = filtered.sort((a, b) => {
       const nextA = getNextPaymentDate(a)
       const nextB = getNextPaymentDate(b)
-      const lumpA =
-        targetLoanId !== null && String(a.id) === String(targetLoanId)
-          ? upcomingLumpSums.filter((lsp) => new Date(lsp.date as unknown as string) <= nextA).reduce((s, lsp) => s + lsp.amount, 0)
-          : 0
-      const lumpB =
-        targetLoanId !== null && String(b.id) === String(targetLoanId)
-          ? upcomingLumpSums.filter((lsp) => new Date(lsp.date as unknown as string) <= nextB).reduce((s, lsp) => s + lsp.amount, 0)
-          : 0
-      const { total: totalA } = computePaymentBreakdown(a, nextA, lumpA)
-      const { total: totalB } = computePaymentBreakdown(b, nextB, lumpB)
+      const isTargetA = targetLoanId !== null && String(a.id) === String(targetLoanId)
+      const isTargetB = targetLoanId !== null && String(b.id) === String(targetLoanId)
+      const extraOverrideA = isTargetA && simulation ? getSimExtraAtDate(simulation, nextA) : undefined
+      const extraOverrideB = isTargetB && simulation ? getSimExtraAtDate(simulation, nextB) : undefined
+      const lumpA = isTargetA
+        ? upcomingLumpSums.filter((lsp) => new Date(lsp.date as unknown as string) <= nextA).reduce((s, lsp) => s + lsp.amount, 0)
+        : 0
+      const lumpB = isTargetB
+        ? upcomingLumpSums.filter((lsp) => new Date(lsp.date as unknown as string) <= nextB).reduce((s, lsp) => s + lsp.amount, 0)
+        : 0
+      const { total: totalA } = computePaymentBreakdown(a, nextA, lumpA, extraOverrideA)
+      const { total: totalB } = computePaymentBreakdown(b, nextB, lumpB, extraOverrideB)
       return totalB - totalA
     })
 
@@ -89,13 +105,14 @@ export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simul
       <CardContent className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 pt-0'>
         {activeLoans.map((loan, i) => {
           const nextDate = getNextPaymentDate(loan)
-          const lumpSumAmount =
-            targetLoanId !== null && String(loan.id) === String(targetLoanId)
-              ? upcomingLumpSums
-                  .filter((lsp) => new Date(lsp.date as unknown as string) <= nextDate)
-                  .reduce((sum, lsp) => sum + lsp.amount, 0)
-              : 0
-          const { interest, principal, total, extra } = computePaymentBreakdown(loan, nextDate, lumpSumAmount)
+          const isTargetLoan = targetLoanId !== null && String(loan.id) === String(targetLoanId)
+          const simExtraOverride = isTargetLoan && simulation ? getSimExtraAtDate(simulation, nextDate) : undefined
+          const lumpSumAmount = isTargetLoan
+            ? upcomingLumpSums
+                .filter((lsp) => new Date(lsp.date as unknown as string) <= nextDate)
+                .reduce((sum, lsp) => sum + lsp.amount, 0)
+            : 0
+          const { interest, principal, total, extra } = computePaymentBreakdown(loan, nextDate, lumpSumAmount, simExtraOverride)
           const principalPct = (principal / total) * 100
           const interestPct = (interest / total) * 100
 
