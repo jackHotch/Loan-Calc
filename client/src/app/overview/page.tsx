@@ -37,10 +37,10 @@ function Overview() {
   }, [activeSimId])
 
   return (
-    <div className='flex flex-col gap-4 p-4 lg:overflow-hidden lg:p-6 lg:h-[calc(100svh-var(--header-height))]'>
-      <Summary activeSim={activeSummary} />
-      <div className='flex flex-col gap-4 lg:flex-row lg:min-h-0 lg:flex-1'>
-        <div className='flex flex-col h-72 lg:h-auto lg:flex-65 lg:min-h-0'>
+    <div className='flex flex-col gap-4 overflow-hidden p-6' style={{ height: 'calc(100svh - var(--header-height))' }}>
+      <Summary activeSim={activeSummary} simulation={activeSimDetail} />
+      <div className='flex min-h-0 flex-1 gap-4'>
+        <div className='flex-65 flex min-h-0 min-w-0 flex-col'>
           <LoanProgressChart
             loans={loans}
             loanSchedules={loanSchedules}
@@ -48,8 +48,8 @@ function Overview() {
             simulationPerLoan={activeSummary?.perLoan}
           />
         </div>
-        <div className='flex flex-col lg:flex-35 lg:min-h-0 lg:min-w-0'>
-          <PaymentBreakdown loans={loans} />
+        <div className='flex-35 flex min-h-0 min-w-0 flex-col'>
+          <PaymentBreakdown loans={loans} simulation={activeSimDetail} />
         </div>
       </div>
     </div>
