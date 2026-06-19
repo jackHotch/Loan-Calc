@@ -170,7 +170,7 @@ export function LoanProgressChart({
           onMouseEnter={() => setTooltipActive(undefined)}
           onTouchStart={() => setTooltipActive(undefined)}
         >
-          <ChartContainer config={chartConfig} className='aspect-auto h-full w-full'>
+          <ChartContainer config={chartConfig} className='aspect-auto h-56 w-full md:h-full'>
             <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
               <CartesianGrid vertical={false} strokeOpacity={0.3} />
               <XAxis

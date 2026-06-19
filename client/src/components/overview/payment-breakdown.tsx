@@ -98,11 +98,11 @@ export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simul
   }
 
   return (
-    <Card className='flex flex-1 flex-col rounded-none'>
+    <Card className='flex flex-col rounded-none md:flex-1'>
       <CardHeader className='pb-2'>
         <CardTitle className='text-base font-medium'>Next Payment Breakdown</CardTitle>
       </CardHeader>
-      <CardContent className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 pt-0'>
+      <CardContent className='flex flex-col gap-4 p-4 pt-0 md:min-h-0 md:flex-1 md:overflow-y-auto'>
         {activeLoans.map((loan, i) => {
           const nextDate = getNextPaymentDate(loan)
           const isTargetLoan = targetLoanId !== null && String(loan.id) === String(targetLoanId)
