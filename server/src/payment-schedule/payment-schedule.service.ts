@@ -38,10 +38,7 @@ export class PaymentScheduleService {
       new Date(startDate),
       loan.payment_day_of_month,
     );
-    const monthlyRate = new Decimal(loan.interest_rate)
-      .div(100)
-      .div(12)
-      .toDecimalPlaces(3);
+    const monthlyRate = new Decimal(loan.interest_rate).div(100).div(12);
     let paymentNumber = startingPaymentNumber;
 
     const maxPayments = 1000;
@@ -79,7 +76,15 @@ export class PaymentScheduleService {
 
       if (monthlyPrincipalPaid.gt(remainingPrincipal)) {
         monthlyPrincipalPaid = remainingPrincipal;
-        extraPayment = new Decimal(0);
+        // Report the portion of the extra payment actually needed to finish
+        // the loan, instead of hard-zeroing it (which hid genuine extra
+        // contributions in the loan's final payoff month).
+        extraPayment = Decimal.max(
+          0,
+          monthlyInterestPaid
+            .plus(monthlyPrincipalPaid)
+            .minus(loan.minimum_payment),
+        ).toDecimalPlaces(2);
       }
 
       remainingPrincipal = remainingPrincipal.minus(monthlyPrincipalPaid);

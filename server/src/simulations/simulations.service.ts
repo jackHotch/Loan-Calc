@@ -164,10 +164,7 @@ export class SimulationsService {
 
         let remainingPrincipal = new Decimal(loan.simulationBalance);
 
-        const monthlyRate = new Decimal(loan.interest_rate)
-          .div(100)
-          .div(12)
-          .toDecimalPlaces(3);
+        const monthlyRate = new Decimal(loan.interest_rate).div(100).div(12);
 
         loan.simulationOutstandingInterest = loan.simulationOutstandingInterest
           .plus(loan.simulationBalance.mul(monthlyRate))
@@ -192,7 +189,16 @@ export class SimulationsService {
         if (monthlyPrincipalPaid.gt(remainingPrincipal)) {
           monthlyOverflow = monthlyPrincipalPaid.minus(remainingPrincipal);
           monthlyPrincipalPaid = remainingPrincipal;
-          extraPaymentApplied = new Decimal(0);
+          // Report the portion of the extra payment actually consumed by this
+          // loan before the remainder rolled over to the next one, instead of
+          // hard-zeroing it (which hid genuine extra contributions in a loan's
+          // final payoff month).
+          extraPaymentApplied = Decimal.max(
+            0,
+            monthlyInterestPaid
+              .plus(monthlyPrincipalPaid)
+              .minus(loan.minimum_payment),
+          ).toDecimalPlaces(2);
         } else {
           monthlyOverflow = new Decimal(0);
         }
