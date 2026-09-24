@@ -6,10 +6,12 @@ import {
   Patch,
   Param,
   Delete,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { LoansService } from './loans.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
+import { SetExtraPaymentsDto } from './dto/set-extra-payments.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
 import { ApplyLumpSumDto } from './dto/apply-lump-sum.dto';
 import { RecalibrateLoanDto } from './dto/recalibrate-loan.dto';
@@ -49,6 +51,26 @@ export class LoansController {
   @Get(':id/lump-sums')
   getLumpSums(@User() userId: BigInt, @Param('id') id: string) {
     return this.loansService.getLumpSums(userId, BigInt(id));
+  }
+
+  @Get(':id/extra-payments')
+  getExtraPayments(@User() userId: BigInt, @Param('id') id: string) {
+    return this.loansService.getExtraPayments(userId, BigInt(id));
+  }
+
+  // The whole timeline is replaced in one call, so correcting a mistake is an
+  // edit of the list rather than a separate per-entry update route.
+  @Put(':id/extra-payments')
+  setExtraPayments(
+    @User() userId: BigInt,
+    @Param('id') id: string,
+    @Body() dto: SetExtraPaymentsDto,
+  ) {
+    return this.loansService.setExtraPayments(
+      userId,
+      BigInt(id),
+      dto.extra_payments,
+    );
   }
 
   @Get(':id')

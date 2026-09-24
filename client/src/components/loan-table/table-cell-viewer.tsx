@@ -12,46 +12,65 @@ import {
   DrawerClose,
 } from '../ui/drawer'
 import { loanFormSchema, LoanTable } from '@/constants/schema'
-import { ReactNode, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { DatePicker } from './date-picker'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CurrencyInput } from './currency-input'
 import { PercentageInput } from './percentage-input'
 import { formToDb, tableToForm } from '@/lib/utils'
-import { useCreateLoan, useUpdateLoan, useApplyLumpSum, useLoanLumpSums, useDeleteLumpSum } from '@/lib/api/loans'
-import { useActiveSimulation, useSimulation } from '@/lib/api/simulations'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import {
+  useCreateLoan,
+  useUpdateLoan,
+  useApplyLumpSum,
+  useLoanLumpSums,
+  useDeleteLumpSum,
+  useLoanExtraPayments,
+  useSetLoanExtraPayments,
+} from '@/lib/api/loans'
+import { formatCurrency, formatDate, parseServerDate, toLocalDateString } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { X } from 'lucide-react'
+
+type ExtraPaymentRow = { amount: number; start_date: Date }
 
 export function TableCellViewer({
   data,
   isNewLoan = false,
-  isSimulationControlled = false,
   children,
 }: {
   data?: LoanTable
   isNewLoan?: boolean
-  isSimulationControlled?: boolean
   children: ReactNode
 }) {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [lumpSumAmount, setLumpSumAmount] = useState<number | null>(null)
   const [lumpSumDate, setLumpSumDate] = useState<Date | null>(null)
+  const [extraPayments, setExtraPayments] = useState<ExtraPaymentRow[]>([])
   const formKey = useRef(0)
   const createLoan = useCreateLoan()
   const updateLoan = useUpdateLoan()
   const applyLumpSum = useApplyLumpSum()
   const deleteLumpSum = useDeleteLumpSum()
   const lumpSums = useLoanLumpSums(!isNewLoan ? data?.id : undefined)
-  const activeSimulation = useActiveSimulation()
-  const activeSimId = isSimulationControlled ? activeSimulation.data?.active_simulation_id : undefined
-  const simulation = useSimulation(activeSimId)
+  const savedExtraPayments = useLoanExtraPayments(!isNewLoan ? data?.id : undefined)
+  const setExtraPaymentsMutation = useSetLoanExtraPayments()
   const description = isNewLoan
     ? 'Edit loan details and payment information'
     : 'Enter new loan details and payment information'
+
+  useEffect(() => {
+    if (savedExtraPayments.data) {
+      setExtraPayments(
+        savedExtraPayments.data.map((ep) => ({
+          amount: Number(ep.amount),
+          start_date: parseServerDate(ep.start_date),
+        })),
+      )
+    }
+  }, [savedExtraPayments.data])
 
   const form = useForm({
     resolver: zodResolver(loanFormSchema),
@@ -64,31 +83,36 @@ export function TableCellViewer({
           starting_principal: null,
           interest_rate: null,
           minimum_payment: null,
-          extra_payment: null,
-          extra_payment_start_date: null,
+          extra_payments: [],
         }
       : tableToForm(data),
   })
 
+  const serializeExtraPayments = () =>
+    extraPayments
+      .filter((ep) => ep.start_date)
+      .map((ep) => ({ amount: ep.amount, start_date: toLocalDateString(ep.start_date) }))
+
   const handleSubmit = async () => {
     try {
-      // When the simulation controls extra payment, always use the original loan values
-      // for those fields so they can never be overridden from this form.
-      if (isSimulationControlled) {
-        const original = tableToForm(data)
-        form.setValue('extra_payment', original?.extra_payment ?? null)
-        form.setValue('extra_payment_start_date', original?.extra_payment_start_date ?? null)
-      }
-
       const formatedLoan = formToDb(form.getValues())
 
       if (isNewLoan) {
-        await createLoan.mutateAsync(formatedLoan)
+        await createLoan.mutateAsync({
+          ...formatedLoan,
+          extra_payments: serializeExtraPayments(),
+        })
         form.reset()
+        setExtraPayments([])
         setDrawerOpen(false)
         toast.success('Loan created successfully!')
       } else {
-        await updateLoan.mutateAsync({ id: form.getValues('id'), data: formatedLoan })
+        const id = form.getValues('id')
+        await updateLoan.mutateAsync({ id, data: formatedLoan })
+        await setExtraPaymentsMutation.mutateAsync({
+          loanId: id,
+          extra_payments: serializeExtraPayments(),
+        })
         form.reset()
         setDrawerOpen(false)
         toast.success('Loan updated successfully!')
@@ -97,6 +121,17 @@ export function TableCellViewer({
       toast.error('Unable to save loan')
     }
   }
+
+  const addExtraPayment = (amount: number) =>
+    setExtraPayments((prev) => [...prev, { amount, start_date: new Date() }])
+
+  const updateExtraPayment = (index: number, patch: Partial<ExtraPaymentRow>) =>
+    setExtraPayments((prev) =>
+      prev.map((ep, i) => (i === index ? { ...ep, ...patch } : ep)),
+    )
+
+  const removeExtraPayment = (index: number) =>
+    setExtraPayments((prev) => prev.filter((_, i) => i !== index))
 
   const handleDeleteLumpSum = async (lumpSumId: number) => {
     if (!data?.id) return
@@ -220,95 +255,95 @@ export function TableCellViewer({
                 />
               </div>
             </div>
-            {isSimulationControlled && (
-              <p className='text-xs text-amber-500'>Extra payment is managed by the active simulation.</p>
-            )}
-            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='extra_payment'>Extra Payment</Label>
-                <CurrencyInput
-                  defaultValue={form.getValues('extra_payment')}
-                  onChange={(val) => form.setValue('extra_payment', val)}
-                  disabled={isSimulationControlled}
-                />
-              </div>
-              <div className='flex flex-col gap-3'>
-                <Label htmlFor='extra_payment_start_date'>Extra Payment Date</Label>
-                <DatePicker
-                  value={form.watch('extra_payment_start_date')}
-                  onChange={(val) => form.setValue('extra_payment_start_date', val)}
-                  disabled={isSimulationControlled}
-                />
+            <div className='flex flex-col gap-3'>
+              <Label>Extra Payments</Label>
+              <p className='text-xs text-muted-foreground'>
+                Each entry sets the recurring monthly extra from its date until the next
+                one. Record what you have actually paid — edit an entry to correct it.
+              </p>
+              {extraPayments.length === 0 && (
+                <p className='text-xs text-muted-foreground italic'>
+                  No extra payments recorded.
+                </p>
+              )}
+              {extraPayments.map((ep, index) => (
+                <div key={index} className='grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end'>
+                  <div className='flex flex-col gap-2'>
+                    <Label className='text-xs text-muted-foreground'>Amount</Label>
+                    <CurrencyInput
+                      defaultValue={ep.amount}
+                      onChange={(val) => updateExtraPayment(index, { amount: val ?? 0 })}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-2'>
+                    <Label className='text-xs text-muted-foreground'>Starting</Label>
+                    <DatePicker
+                      value={ep.start_date}
+                      onChange={(val) => updateExtraPayment(index, { start_date: val })}
+                    />
+                  </div>
+                  <button
+                    type='button'
+                    aria-label='Remove extra payment'
+                    onClick={() => removeExtraPayment(index)}
+                    className='h-9 px-2 text-muted-foreground hover:text-destructive transition-colors'
+                  >
+                    <X className='size-4' />
+                  </button>
+                </div>
+              ))}
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                <Button type='button' variant='outline' onClick={() => addExtraPayment(100)}>
+                  Add an extra payment
+                </Button>
+                {/* Stopping is just a $0 entry, but that is not obvious, so it gets its own button. */}
+                <Button type='button' variant='outline' onClick={() => addExtraPayment(0)}>
+                  Stop extra payments
+                </Button>
               </div>
             </div>
             {!isNewLoan && (
               <div className='flex flex-col gap-3'>
                 <Label>Lump Sum Payment</Label>
-                {isSimulationControlled && (
-                  <p className='text-xs text-amber-500'>Lump sum payments are locked while a simulation is active.</p>
-                )}
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                   <div className='flex flex-col gap-3'>
                     <Label className='text-xs text-muted-foreground'>Amount</Label>
-                    <CurrencyInput
-                      defaultValue={lumpSumAmount}
-                      onChange={setLumpSumAmount}
-                      disabled={isSimulationControlled}
-                    />
+                    <CurrencyInput defaultValue={lumpSumAmount} onChange={setLumpSumAmount} />
                   </div>
                   <div className='flex flex-col gap-3'>
                     <Label className='text-xs text-muted-foreground'>Date</Label>
-                    <DatePicker
-                      value={lumpSumDate}
-                      onChange={setLumpSumDate}
-                      disabled={isSimulationControlled}
-                      maxDate={new Date()}
-                    />
+                    <DatePicker value={lumpSumDate} onChange={setLumpSumDate} maxDate={new Date()} />
                   </div>
                 </div>
                 <Button
                   type='button'
                   variant='secondary'
                   onClick={handleApplyLumpSum}
-                  disabled={isSimulationControlled || !lumpSumAmount || !lumpSumDate}
+                  disabled={!lumpSumAmount || !lumpSumDate}
                 >
                   Apply Lump Sum
                 </Button>
-                {((lumpSums.data && lumpSums.data.length > 0) ||
-                  (isSimulationControlled && (simulation.data?.lump_sum_payments?.length ?? 0) > 0)) && (
-                  <div className='flex flex-col gap-2 border-t pt-3 mt-1'>
-                    {lumpSums.data && lumpSums.data.length > 0 && (
-                      <div className='flex flex-col gap-1'>
-                        <p className='text-xs font-medium text-muted-foreground'>Applied</p>
-                        {lumpSums.data.map((ls) => (
-                          <div key={ls.id} className='flex justify-between items-center text-xs'>
-                            <span className='text-muted-foreground'>{formatDate(new Date(ls.date))}</span>
-                            <div className='flex items-center gap-2'>
-                              <span className='font-medium'>{formatCurrency(ls.amount)}</span>
-                              <button
-                                type='button'
-                                onClick={() => handleDeleteLumpSum(ls.id)}
-                                className='text-muted-foreground hover:text-destructive transition-colors'
-                                disabled={deleteLumpSum.isPending}
-                              >
-                                &times;
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                {lumpSums.data && lumpSums.data.length > 0 && (
+                  <div className='flex flex-col gap-1 border-t pt-3 mt-1'>
+                    <p className='text-xs font-medium text-muted-foreground'>Applied</p>
+                    {lumpSums.data.map((ls) => (
+                      <div key={ls.id} className='flex justify-between items-center text-xs'>
+                        <span className='text-muted-foreground'>
+                          {formatDate(parseServerDate(ls.date))}
+                        </span>
+                        <div className='flex items-center gap-2'>
+                          <span className='font-medium'>{formatCurrency(ls.amount)}</span>
+                          <button
+                            type='button'
+                            onClick={() => handleDeleteLumpSum(ls.id)}
+                            className='text-muted-foreground hover:text-destructive transition-colors'
+                            disabled={deleteLumpSum.isPending}
+                          >
+                            &times;
+                          </button>
+                        </div>
                       </div>
-                    )}
-                    {isSimulationControlled && (simulation.data?.lump_sum_payments?.length ?? 0) > 0 && (
-                      <div className='flex flex-col gap-1 mt-1'>
-                        <p className='text-xs font-medium text-muted-foreground'>Planned (simulation)</p>
-                        {simulation.data!.lump_sum_payments.map((ls) => (
-                          <div key={ls.id} className='flex justify-between text-xs'>
-                            <span className='text-muted-foreground'>{formatDate(new Date(ls.date))}</span>
-                            <span className='font-medium text-blue-500'>{formatCurrency(ls.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>

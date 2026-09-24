@@ -29,8 +29,7 @@ export function dbToTable(loan: LoanDb): LoanTable {
     current_principal: formatCurrency(loan.current_principal),
     current_outstanding_interest: formatCurrency(loan.current_outstanding_interest ?? 0),
     minimum_payment: formatCurrency(loan.minimum_payment),
-    extra_payment: formatCurrency(loan.extra_payment || 0),
-    extra_payment_start_date: formatDate(loan.extra_payment_start_date),
+    current_extra_payment: formatCurrency(loan.current_extra_payment || 0),
     start_date: formatDate(parseISODate(loan.start_date)),
     next_payment_date: getNextPaymentDate(loan.payment_day_of_month, loan.start_date),
     payoff_date: formatDate(loan.payoff_date),
@@ -66,6 +65,21 @@ function parseISODate(isoString: string): Date {
   return new Date(year, month - 1, day)
 }
 
+// Reads a date the server sent as a calendar date. Going through `new Date(str)`
+// would treat it as UTC midnight and render as the previous day west of GMT.
+export function parseServerDate(value: string): Date {
+  return parseISODate(value)
+}
+
+// Writes a calendar date without a timezone. toISOString() would convert to UTC
+// and can land the date a day later, shifting which month a payment applies to.
+export function toLocalDateString(date: Date): string {
+  if (!date) return null
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 function getNextPaymentDate(dayOfMonth: number, startDate: string): string {
   if (dayOfMonth === 0) return ''
 
@@ -90,9 +104,18 @@ function getNextPaymentDate(dayOfMonth: number, startDate: string): string {
   })
 }
 
-export function formToDb(
-  form: LoanForm,
-): Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'current_outstanding_interest' | 'total_interest_paid' | 'total_amount_paid'> {
+export type LoanWritePayload = Omit<
+  LoanDb,
+  | 'id'
+  | 'user_id'
+  | 'current_principal'
+  | 'current_outstanding_interest'
+  | 'current_extra_payment'
+  | 'total_interest_paid'
+  | 'total_amount_paid'
+> & { extra_payments?: { amount: number; start_date: string }[] }
+
+export function formToDb(form: LoanForm): LoanWritePayload {
   return {
     name: form.name,
     lender: form.lender || null,
@@ -100,8 +123,6 @@ export function formToDb(
     accrued_interest: form.accrued_interest ?? 0,
     interest_rate: form.interest_rate,
     minimum_payment: form.minimum_payment,
-    extra_payment: form.extra_payment ?? null,
-    extra_payment_start_date: form.extra_payment_start_date,
     start_date: formatDate(form.start_date),
     payment_day_of_month: form.next_payment_date.getDate(),
     payoff_date: form.payoff_date,
@@ -121,8 +142,9 @@ export function tableToForm(loan: LoanTable): LoanForm {
     starting_principal: parseCurrency(loan.starting_principal),
     interest_rate: parsePercentage(loan.interest_rate),
     minimum_payment: parseCurrency(loan.minimum_payment),
-    extra_payment: parseCurrency(loan.extra_payment),
-    extra_payment_start_date: parseDate(loan.extra_payment_start_date),
+    // The timeline is loaded separately by the drawer; the table only carries
+    // the currently-active amount.
+    extra_payments: [],
   }
 }
 
@@ -156,8 +178,7 @@ export function calculateTotals(loans: LoanDb[]): LoanTable {
     current_outstanding_interest: 0,
     interest_rate: null,
     minimum_payment: 0,
-    extra_payment: 0,
-    extra_payment_start_date: null,
+    current_extra_payment: 0,
     start_date: null,
     payment_day_of_month: 0,
     payoff_date: null,
@@ -170,7 +191,7 @@ export function calculateTotals(loans: LoanDb[]): LoanTable {
     totals.current_principal += Number(loan.current_principal)
     totals.current_outstanding_interest += Number(loan.current_outstanding_interest ?? 0)
     totals.minimum_payment += Number(loan.minimum_payment)
-    totals.extra_payment += Number(loan.extra_payment)
+    totals.current_extra_payment += Number(loan.current_extra_payment ?? 0)
     totals.total_interest_paid += Number(loan.total_interest_paid)
     totals.total_amount_paid += Number(loan.total_amount_paid)
   }

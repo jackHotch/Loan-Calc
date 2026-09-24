@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useLoans } from '@/lib/api/loans'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { payoffStrategies, strategyDisplayNames } from '@/constants/constants'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +28,19 @@ import { Checkbox } from '../ui/checkbox'
 import { PaymentCard } from './payment-card'
 import { Seperator } from '../seperator'
 import { SimulationChartModal } from './simulation-chart-modal'
+
+// Simulations project forward only. Anything on or before the last recorded
+// payment already happened, and belongs on the loan itself.
+function PastDateNotice({ earliestNextPaymentDate }: { earliestNextPaymentDate?: Date }) {
+  if (!earliestNextPaymentDate) return null
+
+  return (
+    <p className='text-xs text-amber-500'>
+      Dates before {formatDate(earliestNextPaymentDate)} are unavailable — those payments
+      have already been made. Record them on the loan instead.
+    </p>
+  )
+}
 
 export function CreateSimulation() {
   const router = useRouter()
@@ -234,6 +247,21 @@ export function CreateSimulation() {
   const selected = loans?.filter((l) => selectedLoans.has(BigInt(l.id)))
   const totalBalance = selected?.reduce((s, l) => s + Number(l.current_principal), 0)
   const totalMinPayment = selected?.reduce((s, l) => s + Number(l.minimum_payment), 0)
+
+  // A simulation can only change payments that have not happened yet. The
+  // boundary is the earliest upcoming payment across the selected loans, not
+  // today — a payment on the 5th is already recorded by the 23rd, so a date in
+  // between is in the past for this loan even though it has not arrived.
+  const earliestNextPaymentDate = useMemo(() => {
+    if (!selected?.length) return undefined
+    const today = new Date()
+    const dates = selected.map((loan) => {
+      const d = new Date(today.getFullYear(), today.getMonth(), loan.payment_day_of_month)
+      if (d <= today) d.setMonth(d.getMonth() + 1)
+      return d
+    })
+    return dates.reduce((min, d) => (d < min ? d : min))
+  }, [selected])
   const payoffOrder = strategyType.includes('Interest')
     ? strategyType.includes('Avalanche')
       ? selected?.sort((a, b) => b.interest_rate - a.interest_rate)
@@ -370,6 +398,7 @@ export function CreateSimulation() {
           <h2 className='font-display text-2xl mb-6'>Lump sum payment</h2>
 
           <div className='flex flex-col gap-2'>
+            <PastDateNotice earliestNextPaymentDate={earliestNextPaymentDate} />
             {lumpSumPayments.map((lsp, key) => {
               return (
                 <PaymentCard
@@ -380,6 +409,7 @@ export function CreateSimulation() {
                   increaseButtonAction={() => addToLumpSumPayment(key, 25)}
                   amount={lsp.amount}
                   date={lsp.date}
+                  minDate={earliestNextPaymentDate}
                   onDateChange={(val) => handleLumpSumPaymentDateChange(key, val)}
                   onPaymentDelete={() => setLumpSumPayments((prev) => prev.filter((_, index) => index != key))}
                 />
@@ -412,6 +442,7 @@ export function CreateSimulation() {
               </div>
             </div>
 
+            <PastDateNotice earliestNextPaymentDate={earliestNextPaymentDate} />
             {extraPayments.map((ep, key) => {
               return (
                 <PaymentCard
@@ -422,6 +453,7 @@ export function CreateSimulation() {
                   increaseButtonAction={() => addToExtraPayment(key, 25)}
                   amount={ep.amount}
                   date={ep.start_date}
+                  minDate={earliestNextPaymentDate}
                   onDateChange={(val) => handleExtraPaymentDateChange(key, val)}
                   onPaymentDelete={() => setExtraPayments((prev) => prev.filter((_, index) => index != key))}
                 />

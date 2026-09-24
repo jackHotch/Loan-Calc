@@ -54,10 +54,6 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
     return summaries.find((s) => s.simulation.id === activeSimInfo.active_simulation_id) ?? null
   }, [activeSimInfo, summaries])
 
-  const simulationLoanIds = useMemo(() => {
-    return new Set(activeSim?.perLoan.map((pl) => pl.loan_id) ?? [])
-  }, [activeSim])
-
   const lastPayoffDate = useMemo(() => {
     const parseFormatted = (s: string) => {
       const [month, day, year] = s.split('/')
@@ -142,7 +138,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       header: 'Loan Name',
       cell: ({ row }) => {
         return (
-          <TableCellViewer data={row.original} isSimulationControlled={simulationLoanIds.has(row.original.id)}>
+          <TableCellViewer data={row.original}>
             <Button variant='link' className='text-foreground w-fit px-0 text-left'>
               {row.original.name}
             </Button>
@@ -187,16 +183,10 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       sortingFn: 'alphanumeric',
     },
     {
-      accessorKey: 'extra_payment',
+      accessorKey: 'current_extra_payment',
       header: ({ column }) => <SortableHeader column={column} title='Extra Payment' />,
-      cell: ({ row }) => <div>{row.original.extra_payment}</div>,
+      cell: ({ row }) => <div>{row.original.current_extra_payment}</div>,
       sortingFn: 'alphanumeric',
-    },
-    {
-      accessorKey: 'extra_payment_start_date',
-      header: ({ column }) => <SortableHeader column={column} title='Extra Payment Start Date' />,
-      cell: ({ row }) => <div>{row.original.extra_payment_start_date}</div>,
-      sortingFn: sortDateString,
     },
     {
       accessorKey: 'start_date',
@@ -281,7 +271,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-32'>
-              <TableCellViewer data={row.original} isSimulationControlled={simulationLoanIds.has(row.original.id)}>
+              <TableCellViewer data={row.original}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit</DropdownMenuItem>
               </TableCellViewer>
               <DropdownMenuSeparator />
@@ -300,7 +290,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
       },
       enableHiding: false,
     },
-  ], [handleDeleteLoan, simulationLoanIds, activeSim, simPerLoanMap])
+  ], [handleDeleteLoan, activeSim, simPerLoanMap])
 
   const table = useReactTable({
     data,
@@ -401,7 +391,7 @@ export function LoanTable({ data: initialData, totals }: { data: LoanTableSchema
                         current_principal: totals.current_principal,
                         current_outstanding_interest: totals.current_outstanding_interest,
                         minimun_payment: totals.minimum_payment,
-                        extra_payment: totals.extra_payment,
+                        current_extra_payment: totals.current_extra_payment,
                         payoff_date: lastPayoffDate,
                         total_interest_paid: totals.total_interest_paid,
                         total_amount_paid: totals.total_amount_paid,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, CSSProperties } from 'react'
+import { useState, useEffect, CSSProperties } from 'react'
 import { Calendar } from '@/components/ui/calendar'
 import { Field } from '@/components/ui/field'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
@@ -21,19 +21,32 @@ export function DatePicker({
   className,
   disabled = false,
   maxDate,
+  minDate,
 }: {
   value?: Date
   onChange?: (date: Date | undefined) => void
   className?: CSSProperties
   disabled?: boolean
   maxDate?: Date
+  minDate?: Date
 }) {
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState<Date | undefined>(externalDate)
   const [month, setMonth] = useState<Date | undefined>(externalDate)
   const [value, setValue] = useState(externalDate ? formatInputDate(externalDate) : '')
 
+  // Rows in a repeatable list are keyed by index, so deleting one re-uses this
+  // component instance with a different date. Without this the displayed text
+  // would keep showing the removed row's date.
+  useEffect(() => {
+    setDate(externalDate)
+    setMonth(externalDate)
+    setValue(externalDate ? formatInputDate(externalDate) : '')
+  }, [externalDate])
+
   const isAfterMax = (d: Date) => !!maxDate && d > maxDate
+  const isBeforeMin = (d: Date) => !!minDate && d < minDate
+  const isOutOfRange = (d: Date) => isAfterMax(d) || isBeforeMin(d)
 
   return (
     <Field className={cn('mx-auto', className)}>
@@ -46,7 +59,7 @@ export function DatePicker({
           onChange={(e) => {
             const date = new Date(e.target.value)
             setValue(e.target.value)
-            if (isValidDate(date) && !isAfterMax(date)) {
+            if (isValidDate(date) && !isOutOfRange(date)) {
               setDate(date)
               onChange?.(date)
               setMonth(date)
@@ -76,7 +89,11 @@ export function DatePicker({
                 selected={date}
                 month={month}
                 onMonthChange={setMonth}
-                disabled={maxDate ? { after: maxDate } : undefined}
+                disabled={
+                  maxDate || minDate
+                    ? { ...(maxDate && { after: maxDate }), ...(minDate && { before: minDate }) }
+                    : undefined
+                }
                 onSelect={(date) => {
                   setDate(date)
                   onChange?.(date)

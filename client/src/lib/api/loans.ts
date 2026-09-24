@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAxios } from './useAxios'
 import { LoanDb, LoanProgress } from '@/constants/schema'
+import { LoanWritePayload } from '@/lib/utils'
 import { ApiError } from './axios'
 
 export const useLoans = () => {
@@ -33,12 +34,8 @@ export const useCreateLoan = () => {
   const axios = useAxios()
   const queryClient = useQueryClient()
 
-  return useMutation<
-    LoanDb,
-    ApiError,
-    Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'current_outstanding_interest' | 'total_interest_paid' | 'total_amount_paid'>
-  >({
-    mutationFn: async (data: LoanDb) => {
+  return useMutation<LoanDb, ApiError, LoanWritePayload>({
+    mutationFn: async (data) => {
       const response = await axios.post<LoanDb>('/loans', data)
       return response.data
     },
@@ -57,7 +54,7 @@ export const useUpdateLoan = () => {
     ApiError,
     {
       id: string
-      data: Omit<LoanDb, 'id' | 'user_id' | 'current_principal' | 'current_outstanding_interest' | 'total_interest_paid' | 'total_amount_paid'>
+      data: LoanWritePayload
     }
   >({
     mutationFn: async ({ id, data }) => {
@@ -109,6 +106,51 @@ export const useDeleteLumpSum = () => {
       queryClient.invalidateQueries({ queryKey: ['loans', variables.loanId] })
       queryClient.invalidateQueries({ queryKey: ['loans', 'schedules'] })
       queryClient.invalidateQueries({ queryKey: ['loans', variables.loanId, 'lump-sums'] })
+    },
+  })
+}
+
+export type LoanExtraPaymentRow = {
+  id: number
+  amount: number
+  start_date: string
+}
+
+export const useLoanExtraPayments = (loanId: string | undefined) => {
+  const axios = useAxios()
+
+  return useQuery<LoanExtraPaymentRow[], ApiError>({
+    queryKey: ['loans', loanId, 'extra-payments'],
+    queryFn: async () => {
+      const response = await axios.get<LoanExtraPaymentRow[]>(`/loans/${loanId}/extra-payments`)
+      return response.data
+    },
+    enabled: !!loanId,
+  })
+}
+
+// The whole timeline is sent at once, so adding, editing and removing an entry
+// are all the same call.
+export const useSetLoanExtraPayments = () => {
+  const axios = useAxios()
+  const queryClient = useQueryClient()
+
+  return useMutation<
+    LoanDb,
+    ApiError,
+    { loanId: string; extra_payments: { amount: number; start_date: string }[] }
+  >({
+    mutationFn: async ({ loanId, extra_payments }) => {
+      const response = await axios.put<LoanDb>(`/loans/${loanId}/extra-payments`, {
+        extra_payments,
+      })
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] })
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.loanId] })
+      queryClient.invalidateQueries({ queryKey: ['loans', 'schedules'] })
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.loanId, 'extra-payments'] })
     },
   })
 }

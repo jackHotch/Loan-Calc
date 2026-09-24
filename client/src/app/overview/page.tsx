@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Summary } from '@/components/overview/summary'
 import { LoanProgressChart } from '@/components/loan-progress-chart'
 import { PaymentBreakdown } from '@/components/overview/payment-breakdown'
@@ -84,8 +84,14 @@ function Overview() {
 
   const { data: activeSimDetail } = useSimulation(activeSimId)
 
+  // Two syncs in flight at once each rebuild the schedule, and the second
+  // one's insert lands after the first one's delete — duplicating every row.
+  // StrictMode remounts this effect, so the ref guards against that.
+  const syncedSimId = useRef<string | null>(null)
+
   useEffect(() => {
-    if (activeSimId) {
+    if (activeSimId && syncedSimId.current !== activeSimId) {
+      syncedSimId.current = activeSimId
       syncSimulation.mutate()
     }
     // Only run on mount or when the active sim changes
