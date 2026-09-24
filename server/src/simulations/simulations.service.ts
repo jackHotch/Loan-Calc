@@ -75,12 +75,8 @@ export class SimulationsService {
         const simulationStartDate = new Date(
           lastActualPayment ? lastActualPayment.payment_date : l.start_date,
         );
-        const loanExtraPayments =
-          await this.paymentSchedules.getLoanExtraPayments(l.id);
-
         return {
           ...l,
-          loanExtraPayments,
           simulationBalance: new Decimal(l.current_principal),
           simulationOutstandingInterest: new Decimal(
             lastActualPayment
@@ -149,24 +145,21 @@ export class SimulationsService {
         const paymentDate = new Date(loan.simulationStartdate);
         paymentDate.setMonth(paymentDate.getMonth() + monthCount);
 
-        // Every loan keeps paying whatever extra it already has recorded — a
-        // simulation about one loan must not pretend the user stopped paying
-        // extra on the others. On the target loan the simulation's entries are
-        // merged in and supersede from their start dates forward, by the same
-        // latest-entry-wins rule used everywhere else.
-        const ownExtra = resolveExtraPayment(
-          loan.loanExtraPayments,
-          paymentDate,
-        );
-        const targetExtra = resolveExtraPayment(
-          [...loan.loanExtraPayments, ...(extraPayments ?? [])],
+        // A simulation's extra payments are the entire extra budget from here
+        // on. Whatever a loan is currently paying extra stops at the projection
+        // boundary — those entries describe what has already been paid, and
+        // carrying them forward would add to the simulation's budget rather
+        // than replace it. The real loan schedule still projects them, which is
+        // what the baseline comparison is measured against.
+        const extraPaymentPool = resolveExtraPayment(
+          extraPayments,
           paymentDate,
         ).plus(cascadeBonus);
 
         let extraPaymentApplied: Decimal =
           loan.extraPaymentTarget === true
-            ? targetExtra.plus(monthlyOverflow).plus(lumpSumForMonth)
-            : ownExtra.plus(monthlyOverflow);
+            ? extraPaymentPool.plus(monthlyOverflow).plus(lumpSumForMonth)
+            : monthlyOverflow;
 
         let remainingPrincipal = new Decimal(loan.simulationBalance);
 
