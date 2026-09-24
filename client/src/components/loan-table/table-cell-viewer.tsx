@@ -12,7 +12,7 @@ import {
   DrawerClose,
 } from '../ui/drawer'
 import { loanFormSchema, LoanTable } from '@/constants/schema'
-import { ReactNode, useEffect, useRef, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { DatePicker } from './date-picker'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -60,6 +60,11 @@ export function TableCellViewer({
   const description = isNewLoan
     ? 'Edit loan details and payment information'
     : 'Enter new loan details and payment information'
+
+  // A loan records what has already been paid, so its dates stop at today.
+  // Anything later belongs to a simulation — that split is what keeps the two
+  // from describing the same payment.
+  const today = useMemo(() => new Date(), [])
 
   useEffect(() => {
     if (savedExtraPayments.data) {
@@ -122,16 +127,12 @@ export function TableCellViewer({
     }
   }
 
-  const addExtraPayment = (amount: number) =>
-    setExtraPayments((prev) => [...prev, { amount, start_date: new Date() }])
+  const addExtraPayment = (amount: number) => setExtraPayments((prev) => [...prev, { amount, start_date: new Date() }])
 
   const updateExtraPayment = (index: number, patch: Partial<ExtraPaymentRow>) =>
-    setExtraPayments((prev) =>
-      prev.map((ep, i) => (i === index ? { ...ep, ...patch } : ep)),
-    )
+    setExtraPayments((prev) => prev.map((ep, i) => (i === index ? { ...ep, ...patch } : ep)))
 
-  const removeExtraPayment = (index: number) =>
-    setExtraPayments((prev) => prev.filter((_, i) => i !== index))
+  const removeExtraPayment = (index: number) => setExtraPayments((prev) => prev.filter((_, i) => i !== index))
 
   const handleDeleteLumpSum = async (lumpSumId: number) => {
     if (!data?.id) return
@@ -174,7 +175,9 @@ export function TableCellViewer({
       direction={isMobile ? 'bottom' : 'right'}
     >
       <DrawerTrigger asChild>{children}</DrawerTrigger>
-      <DrawerContent className={isMobile ? 'flex flex-col max-h-[90vh]' : 'flex flex-col h-screen w-150!'}>
+      {/* The max-w override is required: DrawerContent's own sm:max-w-md caps
+          the width at 448px regardless of what w-* is set to. */}
+      <DrawerContent className={isMobile ? 'flex flex-col max-h-[90vh]' : 'flex flex-col h-screen w-150! max-w-lg!'}>
         <DrawerHeader className='gap-1 shrink-0'>
           <DrawerTitle>{isNewLoan ? 'New Loan' : 'Edit Loan'}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
@@ -258,13 +261,12 @@ export function TableCellViewer({
             <div className='flex flex-col gap-3'>
               <Label>Extra Payments</Label>
               <p className='text-xs text-muted-foreground'>
-                Each entry sets the recurring monthly extra from its date until the next
-                one. Record what you have actually paid — edit an entry to correct it.
+                Each entry sets the recurring monthly extra from its date until the next one. Record what you have
+                actually paid — edit an entry to correct it. Dates stop at today; use a simulation to plan future
+                changes.
               </p>
               {extraPayments.length === 0 && (
-                <p className='text-xs text-muted-foreground italic'>
-                  No extra payments recorded.
-                </p>
+                <p className='text-xs text-muted-foreground italic'>No extra payments recorded.</p>
               )}
               {extraPayments.map((ep, index) => (
                 <div key={index} className='grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end'>
@@ -280,6 +282,7 @@ export function TableCellViewer({
                     <DatePicker
                       value={ep.start_date}
                       onChange={(val) => updateExtraPayment(index, { start_date: val })}
+                      maxDate={today}
                     />
                   </div>
                   <button
@@ -312,7 +315,7 @@ export function TableCellViewer({
                   </div>
                   <div className='flex flex-col gap-3'>
                     <Label className='text-xs text-muted-foreground'>Date</Label>
-                    <DatePicker value={lumpSumDate} onChange={setLumpSumDate} maxDate={new Date()} />
+                    <DatePicker value={lumpSumDate} onChange={setLumpSumDate} maxDate={today} />
                   </div>
                 </div>
                 <Button
@@ -328,9 +331,7 @@ export function TableCellViewer({
                     <p className='text-xs font-medium text-muted-foreground'>Applied</p>
                     {lumpSums.data.map((ls) => (
                       <div key={ls.id} className='flex justify-between items-center text-xs'>
-                        <span className='text-muted-foreground'>
-                          {formatDate(parseServerDate(ls.date))}
-                        </span>
+                        <span className='text-muted-foreground'>{formatDate(parseServerDate(ls.date))}</span>
                         <div className='flex items-center gap-2'>
                           <span className='font-medium'>{formatCurrency(ls.amount)}</span>
                           <button
