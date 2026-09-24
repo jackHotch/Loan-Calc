@@ -19,8 +19,8 @@ export class LoansService {
     const result = await this.db.query(
       `
       INSERT INTO loans (user_id, name, lender, starting_principal,
-        interest_rate, minimum_payment, extra_payment, extra_payment_start_date, start_date, payment_day_of_month, accrued_interest)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        interest_rate, minimum_payment, start_date, payment_day_of_month, accrued_interest)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *;`,
       [
         userId,
@@ -29,8 +29,6 @@ export class LoansService {
         loan.starting_principal,
         loan.interest_rate,
         loan.minimum_payment,
-        loan.extra_payment,
-        loan.extra_payment_start_date,
         loan.start_date,
         loan.payment_day_of_month,
         loan.accrued_interest ?? 0,
@@ -39,8 +37,12 @@ export class LoansService {
 
     const createdLoan = result[0] as LoanDb;
 
+    if (loan.extra_payments?.length) {
+      await this.replaceExtraPayments(createdLoan.id, loan.extra_payments);
+    }
+
     const createdSchedule =
-      await this.paymentSchedules.generateScheduleForNewLoan(createdLoan);
+      await this.paymentSchedules.regenerateScheduleForLoan(createdLoan.id);
 
     const finalLoan = await this.findOne(userId, createdLoan.id);
 
@@ -48,6 +50,26 @@ export class LoansService {
       loan: finalLoan,
       paymentSchedule: createdSchedule,
     };
+  }
+
+  private async replaceExtraPayments(
+    loanId: BigInt,
+    entries: { amount: number; start_date: string | Date }[],
+  ) {
+    await this.db.query(
+      `DELETE FROM loan_extra_payments WHERE loan_id = $1`,
+      [loanId],
+    );
+    if (!entries.length) return;
+
+    const values = entries
+      .map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`)
+      .join(', ');
+
+    await this.db.query(
+      `INSERT INTO loan_extra_payments (loan_id, amount, start_date) VALUES ${values}`,
+      [loanId, ...entries.flatMap((e) => [e.amount, e.start_date])],
+    );
   }
 
   async findAll(userId: BigInt) {
@@ -62,10 +84,13 @@ export class LoansService {
         l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
-        l.extra_payment,
         l.payment_day_of_month,
         l.start_date,
-        l.extra_payment_start_date,
+        COALESCE((
+          SELECT amount FROM loan_extra_payments
+          WHERE loan_id = l.id AND start_date <= CURRENT_DATE
+          ORDER BY start_date DESC LIMIT 1
+        ), 0) AS current_extra_payment,
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
         COALESCE(last_actual.remaining_principal, l.starting_principal) AS current_principal,
@@ -101,10 +126,8 @@ export class LoansService {
         l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
-        l.extra_payment,
         l.payment_day_of_month,
         l.start_date,
-        l.extra_payment_start_date,
         last_actual.remaining_principal,
         last_actual.remaining_outstanding_interest,
         last_schedule.payment_date
@@ -125,10 +148,13 @@ export class LoansService {
         l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
-        l.extra_payment,
         l.payment_day_of_month,
         l.start_date,
-        l.extra_payment_start_date,
+        COALESCE((
+          SELECT amount FROM loan_extra_payments
+          WHERE loan_id = l.id AND start_date <= CURRENT_DATE
+          ORDER BY start_date DESC LIMIT 1
+        ), 0) AS current_extra_payment,
         COALESCE(SUM(ps.interest_paid), 0) AS total_interest_paid,
         COALESCE(SUM(ps.principal_paid) + SUM(ps.interest_paid), 0) AS total_amount_paid,
         COALESCE(last_actual.remaining_principal, l.starting_principal) AS current_principal,
@@ -165,10 +191,8 @@ export class LoansService {
         l.accrued_interest,
         l.interest_rate,
         l.minimum_payment,
-        l.extra_payment,
         l.payment_day_of_month,
         l.start_date,
-        l.extra_payment_start_date,
         last_actual.remaining_principal,
         last_actual.remaining_outstanding_interest,
         last_schedule.payment_date
@@ -308,9 +332,10 @@ export class LoansService {
     const needsRecalculation =
       loan.interest_rate !== undefined ||
       loan.minimum_payment !== undefined ||
-      loan.extra_payment !== undefined ||
-      loan.extra_payment_start_date !== undefined ||
-      loan.payment_day_of_month !== undefined;
+      loan.extra_payments !== undefined ||
+      loan.payment_day_of_month !== undefined ||
+      loan.starting_principal !== undefined ||
+      loan.start_date !== undefined;
 
     const result = await this.db.query(
       `UPDATE loans SET
@@ -319,12 +344,10 @@ export class LoansService {
         starting_principal = COALESCE($3, starting_principal),
         interest_rate = COALESCE($4, interest_rate),
         minimum_payment = COALESCE($5, minimum_payment),
-        extra_payment = COALESCE($6, extra_payment),
-        extra_payment_start_date = $7,
-        start_date = COALESCE($8, start_date),
-        payment_day_of_month = COALESCE($9, payment_day_of_month)
-      WHERE id = $10
-      AND user_id = $11
+        start_date = COALESCE($6, start_date),
+        payment_day_of_month = COALESCE($7, payment_day_of_month)
+      WHERE id = $8
+      AND user_id = $9
       RETURNING *`,
       [
         loan.name,
@@ -332,8 +355,6 @@ export class LoansService {
         loan.starting_principal,
         loan.interest_rate,
         loan.minimum_payment,
-        loan.extra_payment,
-        loan.extra_payment_start_date,
         loan.start_date,
         loan.payment_day_of_month,
         loanId,
@@ -342,16 +363,19 @@ export class LoansService {
     );
 
     let updatedLoan = result[0] as LoanDb;
-    let schedule;
+    if (!updatedLoan) throw new NotFoundException('Loan not found');
 
+    if (loan.extra_payments !== undefined) {
+      await this.replaceExtraPayments(loanId, loan.extra_payments);
+    }
+
+    let schedule;
     if (needsRecalculation) {
       schedule =
-        await this.paymentSchedules.generateScheduleForExistingLoan(
-          updatedLoan,
-        );
-      updatedLoan = await this.findOne(userId, updatedLoan.id);
+        await this.paymentSchedules.regenerateScheduleForLoan(loanId);
+      updatedLoan = await this.findOne(userId, loanId);
     } else {
-      schedule = this.paymentSchedules.getSchedules(updatedLoan.id, 'loan');
+      schedule = await this.paymentSchedules.getSchedules(loanId, 'loan');
     }
 
     return {
@@ -361,73 +385,18 @@ export class LoansService {
   }
 
   async applyLumpSum(userId: BigInt, loanId: BigInt, dto: ApplyLumpSumDto) {
-    const d = new Date(dto.date);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-
-    const rows = await this.db.query(
-      `SELECT id, payment_number, remaining_principal, remaining_outstanding_interest, payment_date
-       FROM payment_schedules
-       WHERE loan_id = $1
-         AND EXTRACT(year FROM payment_date) = $2
-         AND EXTRACT(month FROM payment_date) = $3
-       ORDER BY payment_number ASC
-       LIMIT 1`,
-      [loanId, year, month],
+    const loan = await this.db.queryOne(
+      `SELECT id FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
     );
-
-    if (!rows[0]) throw new NotFoundException('No payment scheduled for that date');
-    const entry = rows[0];
-
-    const newPrincipal = Math.max(0, Number(entry.remaining_principal) - dto.amount);
-    const actualReduction = Number(entry.remaining_principal) - newPrincipal;
-
-    await this.db.query(
-      `UPDATE payment_schedules
-       SET remaining_principal = $1,
-           extra_payment = extra_payment + $2,
-           principal_paid = principal_paid + $2
-       WHERE id = $3`,
-      [newPrincipal, actualReduction, entry.id],
-    );
+    if (!loan) throw new NotFoundException('Loan not found');
 
     await this.db.query(
       `INSERT INTO loan_lump_sum_payments (loan_id, amount, date) VALUES ($1, $2, $3)`,
-      [loanId, actualReduction, dto.date],
+      [loanId, dto.amount, dto.date],
     );
 
-    // Delete all entries after the matched payment, plus any duplicates for the same payment_number
-    await this.db.query(
-      'DELETE FROM payment_schedules WHERE loan_id = $1 AND (payment_number > $2 OR (payment_number = $2 AND id != $3))',
-      [loanId, entry.payment_number, entry.id],
-    );
-
-    const loanRows = await this.db.query(
-      `SELECT id, starting_principal, accrued_interest, interest_rate, minimum_payment,
-              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
-       FROM loans WHERE id = $1 AND user_id = $2`,
-      [loanId, userId],
-    );
-    if (!loanRows[0]) throw new NotFoundException('Loan not found');
-
-    if (newPrincipal > 0) {
-      // Advance startDate by one month so getNewPaymentDate targets the correct next payment month
-      const nextMonthDate = new Date(entry.payment_date);
-      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
-
-      const schedules = this.paymentSchedules.calculatePaymentSchedule(loanRows[0], {
-        startFromPaymentNumber: entry.payment_number + 1,
-        startingPrincipal: newPrincipal,
-        startDate: nextMonthDate,
-        startingOutstandingInterest: Number(entry.remaining_outstanding_interest ?? 0),
-      });
-
-      if (schedules.length > 0) {
-        await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
-      }
-    }
-
-    await this.paymentSchedules.processAllPendingPayments(loanId);
+    await this.paymentSchedules.regenerateScheduleForLoan(loanId);
 
     return this.findOne(userId, loanId);
   }
@@ -445,196 +414,90 @@ export class LoansService {
   }
 
   async deleteLumpSum(userId: BigInt, loanId: BigInt, lumpSumId: BigInt) {
-    const loanRows = await this.db.query(
-      `SELECT id, starting_principal, accrued_interest, interest_rate, minimum_payment,
-              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
-       FROM loans WHERE id = $1 AND user_id = $2`,
+    const loan = await this.db.queryOne(
+      `SELECT id FROM loans WHERE id = $1 AND user_id = $2`,
       [loanId, userId],
     );
-    if (!loanRows[0]) throw new NotFoundException('Loan not found');
-    const loan = loanRows[0];
+    if (!loan) throw new NotFoundException('Loan not found');
 
-    const lumpSum = await this.db.queryOne(
-      `SELECT id, amount::float AS amount, date FROM loan_lump_sum_payments WHERE id = $1 AND loan_id = $2`,
+    const deleted = await this.db.query(
+      `DELETE FROM loan_lump_sum_payments WHERE id = $1 AND loan_id = $2 RETURNING id`,
       [lumpSumId, loanId],
     );
-    if (!lumpSum) throw new NotFoundException('Lump sum payment not found');
+    if (!deleted[0]) throw new NotFoundException('Lump sum payment not found');
 
-    // Collect any other lump sums at or after this date — they must be re-applied after we revert
-    const laterLumpSums = await this.db.query(
-      `SELECT amount::float AS amount, date FROM loan_lump_sum_payments
-       WHERE loan_id = $1 AND id != $2 AND date >= $3
-       ORDER BY date ASC`,
-      [loanId, lumpSumId, lumpSum.date],
-    );
+    await this.paymentSchedules.regenerateScheduleForLoan(loanId);
 
-    await this.db.query(`DELETE FROM loan_lump_sum_payments WHERE id = $1`, [lumpSumId]);
-
-    // Find the payment entry that was modified when this lump sum was applied
-    const d = new Date(lumpSum.date);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-
-    const entry = await this.db.queryOne(
-      `SELECT id, payment_number, remaining_principal::float AS remaining_principal,
-              remaining_outstanding_interest::float AS remaining_outstanding_interest, payment_date
-       FROM payment_schedules
-       WHERE loan_id = $1
-         AND EXTRACT(year FROM payment_date) = $2
-         AND EXTRACT(month FROM payment_date) = $3
-       ORDER BY payment_number ASC LIMIT 1`,
-      [loanId, year, month],
-    );
-
-    if (!entry) {
-      // Entry no longer exists — full regeneration is the best we can do
-      await this.paymentSchedules.generateScheduleForExistingLoan(loan);
-      await this.paymentSchedules.processAllPendingPayments(loanId);
-      return this.findOne(userId, loanId);
-    }
-
-    // Revert: add the lump sum amount back to this entry's principal
-    const revertedPrincipal = Number(entry.remaining_principal) + lumpSum.amount;
-    await this.db.query(
-      `UPDATE payment_schedules
-       SET remaining_principal = $1,
-           extra_payment       = GREATEST(0, extra_payment - $2),
-           principal_paid      = GREATEST(0, principal_paid - $2)
-       WHERE id = $3`,
-      [revertedPrincipal, lumpSum.amount, entry.id],
-    );
-
-    // Remove all schedule entries after the reverted payment
-    await this.db.query(
-      `DELETE FROM payment_schedules WHERE loan_id = $1 AND payment_number > $2`,
-      [loanId, entry.payment_number],
-    );
-
-    // Rebuild projected schedule from the reverted entry forward
-    if (revertedPrincipal > 0) {
-      const nextMonthDate = new Date(entry.payment_date);
-      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
-
-      const schedules = this.paymentSchedules.calculatePaymentSchedule(loan, {
-        startFromPaymentNumber: entry.payment_number + 1,
-        startingPrincipal: revertedPrincipal,
-        startDate: nextMonthDate,
-        startingOutstandingInterest: Number(entry.remaining_outstanding_interest ?? 0),
-      });
-
-      if (schedules.length > 0) {
-        await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
-      }
-    }
-
-    // Re-apply any lump sums that were scheduled after the deleted one
-    for (const ls of laterLumpSums) {
-      await this.reapplyLumpSumToSchedule(loanId, loan, ls.amount, ls.date);
-    }
-
-    await this.paymentSchedules.processAllPendingPayments(loanId);
     return this.findOne(userId, loanId);
   }
 
-  private async reapplyLumpSumToSchedule(
-    loanId: BigInt,
-    loan: any,
-    amount: number,
-    date: string,
-  ) {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-
-    const rows = await this.db.query(
-      `SELECT id, payment_number, remaining_principal, remaining_outstanding_interest, payment_date
-       FROM payment_schedules
-       WHERE loan_id = $1
-         AND EXTRACT(year FROM payment_date) = $2
-         AND EXTRACT(month FROM payment_date) = $3
-       ORDER BY payment_number ASC LIMIT 1`,
-      [loanId, year, month],
-    );
-
-    if (!rows[0]) return;
-    const entry = rows[0];
-
-    const newPrincipal = Math.max(0, Number(entry.remaining_principal) - amount);
-    const actualReduction = Number(entry.remaining_principal) - newPrincipal;
-
-    await this.db.query(
-      `UPDATE payment_schedules
-       SET remaining_principal = $1,
-           extra_payment       = extra_payment + $2,
-           principal_paid      = principal_paid + $2
-       WHERE id = $3`,
-      [newPrincipal, actualReduction, entry.id],
-    );
-
-    await this.db.query(
-      `DELETE FROM payment_schedules
-       WHERE loan_id = $1 AND (payment_number > $2 OR (payment_number = $2 AND id != $3))`,
-      [loanId, entry.payment_number, entry.id],
-    );
-
-    if (newPrincipal > 0) {
-      const nextMonthDate = new Date(entry.payment_date);
-      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
-
-      const schedules = this.paymentSchedules.calculatePaymentSchedule(loan, {
-        startFromPaymentNumber: entry.payment_number + 1,
-        startingPrincipal: newPrincipal,
-        startDate: nextMonthDate,
-        startingOutstandingInterest: Number(entry.remaining_outstanding_interest ?? 0),
-      });
-
-      if (schedules.length > 0) {
-        await this.paymentSchedules.saveSchedule(loanId, 'loan', schedules);
-      }
-    }
-  }
-
-  async recalibrate(userId: BigInt, loanId: BigInt, dto: RecalibrateLoanDto) {
-    const loanRows = await this.db.query(
-      `SELECT id, interest_rate, minimum_payment, extra_payment, extra_payment_start_date,
-              start_date, payment_day_of_month
-       FROM loans WHERE id = $1 AND user_id = $2`,
+  async getExtraPayments(userId: BigInt, loanId: BigInt) {
+    const loan = await this.db.queryOne(
+      `SELECT id FROM loans WHERE id = $1 AND user_id = $2`,
       [loanId, userId],
     );
-    if (!loanRows[0]) throw new NotFoundException('Loan not found');
+    if (!loan) throw new NotFoundException('Loan not found');
+    return this.db.query(
+      `SELECT id, amount::float AS amount, start_date
+       FROM loan_extra_payments WHERE loan_id = $1 ORDER BY start_date`,
+      [loanId],
+    );
+  }
+
+  async setExtraPayments(
+    userId: BigInt,
+    loanId: BigInt,
+    entries: { amount: number; start_date: Date }[],
+  ) {
+    const loan = await this.db.queryOne(
+      `SELECT id FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
+    );
+    if (!loan) throw new NotFoundException('Loan not found');
+
+    await this.replaceExtraPayments(loanId, entries);
+    await this.paymentSchedules.regenerateScheduleForLoan(loanId);
+
+    return this.findOne(userId, loanId);
+  }
+
+  // Recalibration restates the loan's opening balance from a real statement and
+  // restarts the schedule from today, so any extra payments or lump sums
+  // recorded before that point are already baked into the new balance and are
+  // cleared rather than replayed.
+  async recalibrate(userId: BigInt, loanId: BigInt, dto: RecalibrateLoanDto) {
+    const loan = await this.db.queryOne(
+      `SELECT id FROM loans WHERE id = $1 AND user_id = $2`,
+      [loanId, userId],
+    );
+    if (!loan) throw new NotFoundException('Loan not found');
+
+    const today = new Date();
 
     await this.db.query(
       `UPDATE loans
        SET starting_principal = COALESCE($1, starting_principal),
-           accrued_interest   = COALESCE($2, accrued_interest)
-       WHERE id = $3`,
-      [dto.current_principal ?? null, dto.accrued_interest ?? null, loanId],
+           accrued_interest   = COALESCE($2, accrued_interest),
+           start_date         = $3
+       WHERE id = $4`,
+      [
+        dto.current_principal ?? null,
+        dto.accrued_interest ?? null,
+        today,
+        loanId,
+      ],
     );
 
     await this.db.query(
-      `DELETE FROM payment_schedules WHERE loan_id = $1`,
-      [loanId],
+      `DELETE FROM loan_extra_payments WHERE loan_id = $1 AND start_date < $2`,
+      [loanId, today],
+    );
+    await this.db.query(
+      `DELETE FROM loan_lump_sum_payments WHERE loan_id = $1 AND date < $2`,
+      [loanId, today],
     );
 
-    const updatedLoan = await this.db.query(
-      `SELECT id, starting_principal, accrued_interest, interest_rate, minimum_payment,
-              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
-       FROM loans WHERE id = $1`,
-      [loanId],
-    );
-    const loan = updatedLoan[0];
-    const schedule = this.paymentSchedules.calculatePaymentSchedule(loan, {
-      startingPrincipal: Number(loan.starting_principal),
-      startingOutstandingInterest: Number(loan.accrued_interest),
-      startDate: new Date(),
-      startFromPaymentNumber: 1,
-    });
-
-    if (schedule.length > 0) {
-      await this.paymentSchedules.saveSchedule(loanId, 'loan', schedule);
-    }
-
-    await this.paymentSchedules.processAllPendingPayments(loanId);
+    await this.paymentSchedules.regenerateScheduleForLoan(loanId);
     return this.findOne(userId, loanId);
   }
 

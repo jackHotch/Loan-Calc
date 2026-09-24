@@ -31,15 +31,7 @@ function computePaymentBreakdown(loan: LoanDb, nextPaymentDate: Date, lumpSumAmo
   if (overrideExtra !== undefined) {
     extra = overrideExtra
   } else {
-    const extraStartDate = loan.extra_payment_start_date
-      ? new Date(loan.extra_payment_start_date as unknown as string)
-      : null
-    const extraApplies =
-      loan.extra_payment != null &&
-      Number(loan.extra_payment) > 0 &&
-      extraStartDate != null &&
-      extraStartDate <= nextPaymentDate
-    extra = extraApplies ? Number(loan.extra_payment) : 0
+    extra = Number(loan.current_extra_payment ?? 0)
   }
   const total = Number(loan.minimum_payment) + extra + lumpSumAmount
   const principal = Math.max(0, total - interest)

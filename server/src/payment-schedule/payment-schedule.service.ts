@@ -5,9 +5,17 @@ import {
   PaymentScheduleEntry,
   PaymentScheduleInput,
 } from '../lib/types/payment-schedule.types';
-import { LoanDb } from 'src/lib/types/loan.types';
+import {
+  ExtraPaymentEntry,
+  LoanDb,
+  LumpSumEntry,
+} from 'src/lib/types/loan.types';
 import { DatabaseService } from 'src/database/database.service';
-import { getNewPaymentDate } from 'src/lib/utils';
+import {
+  getNewPaymentDate,
+  resolveExtraPayment,
+  resolveLumpSumsForMonth,
+} from 'src/lib/utils';
 
 @Injectable()
 export class PaymentScheduleService {
@@ -47,12 +55,10 @@ export class PaymentScheduleService {
       (remainingPrincipal.gt(0.01) || outstandingInterest.gt(0.01)) &&
       paymentNumber < maxPayments
     ) {
-      let extraPayment: Decimal =
-        loan.extra_payment &&
-        (!loan.extra_payment_start_date ||
-          paymentDate >= new Date(loan.extra_payment_start_date))
-          ? new Decimal(loan.extra_payment)
-          : new Decimal(0);
+      let extraPayment: Decimal = resolveExtraPayment(
+        loan.extra_payments,
+        paymentDate,
+      ).plus(resolveLumpSumsForMonth(loan.lump_sums, paymentDate));
 
       outstandingInterest = outstandingInterest
         .plus(remainingPrincipal.mul(monthlyRate))
@@ -108,28 +114,6 @@ export class PaymentScheduleService {
     return schedule;
   }
 
-  async generateScheduleForNewLoan(loan: LoanDb) {
-    const paymentScheduleInput: PaymentScheduleInput = {
-      starting_principal: loan.starting_principal,
-      interest_rate: loan.interest_rate,
-      start_date: loan.start_date,
-      payment_day_of_month: loan.payment_day_of_month,
-      minimum_payment: loan.minimum_payment,
-      extra_payment: loan.extra_payment,
-      extra_payment_start_date: loan.extra_payment_start_date,
-      accrued_interest: loan.accrued_interest ?? 0,
-    };
-
-    const schedule: PaymentScheduleEntry[] =
-      this.calculatePaymentSchedule(paymentScheduleInput);
-
-    await this.saveSchedule(loan.id, 'loan', schedule);
-
-    await this.processAllPendingPayments(loan.id);
-
-    return await this.getSchedules(loan.id, 'loan');
-  }
-
   async getLastActualPayment(loanId: BigInt): Promise<any> {
     const result = await this.db.query(
       `
@@ -137,7 +121,7 @@ export class PaymentScheduleService {
       FROM payment_schedules
       WHERE loan_id = $1
       AND is_actual = TRUE
-      ORDER BY payment_date DESC
+      ORDER BY payment_number DESC, id DESC
       LIMIT 1
       `,
       [loanId],
@@ -146,64 +130,60 @@ export class PaymentScheduleService {
     return result[0];
   }
 
-  async generateScheduleForExistingLoan(loan: LoanDb) {
-    const lastActualPayment = await this.getLastActualPayment(loan.id);
+  async getLoanExtraPayments(loanId: BigInt): Promise<ExtraPaymentEntry[]> {
+    return this.db.query(
+      `SELECT id, amount::float AS amount, start_date
+       FROM loan_extra_payments WHERE loan_id = $1 ORDER BY start_date`,
+      [loanId],
+    ) as Promise<ExtraPaymentEntry[]>;
+  }
 
-    const paymentScheduleInput: PaymentScheduleInput = {
+  async getLoanLumpSums(loanId: BigInt): Promise<LumpSumEntry[]> {
+    return this.db.query(
+      `SELECT id, amount::float AS amount, date
+       FROM loan_lump_sum_payments WHERE loan_id = $1 ORDER BY date`,
+      [loanId],
+    ) as Promise<LumpSumEntry[]>;
+  }
+
+  // The schedule is a pure function of the loan's own recorded inputs, so this
+  // rebuilds the whole thing from the loan's start every time. That is only
+  // safe because nothing simulation-derived is ever written onto the loan —
+  // when it was, this shape retroactively applied a simulation's future extra
+  // payment across the entire history and destroyed it.
+  async regenerateScheduleForLoan(loanId: BigInt) {
+    const [loan] = await this.db.query(
+      `SELECT id, starting_principal, accrued_interest, interest_rate,
+              minimum_payment, start_date, payment_day_of_month
+       FROM loans WHERE id = $1`,
+      [loanId],
+    );
+    if (!loan) return [];
+
+    const [extraPayments, lumpSums] = await Promise.all([
+      this.getLoanExtraPayments(loanId),
+      this.getLoanLumpSums(loanId),
+    ]);
+
+    const schedule = this.calculatePaymentSchedule({
       starting_principal: loan.starting_principal,
       interest_rate: loan.interest_rate,
       start_date: loan.start_date,
       payment_day_of_month: loan.payment_day_of_month,
       minimum_payment: loan.minimum_payment,
-      extra_payment: loan.extra_payment,
-      extra_payment_start_date: loan.extra_payment_start_date,
       accrued_interest: loan.accrued_interest ?? 0,
-    };
+      extra_payments: extraPayments,
+      lump_sums: lumpSums,
+    });
 
-    let startFromPaymentNumber: number;
-    let startingPrincipal: number;
-    let startingOutstandingInterest: number;
-    let startDate: Date;
+    await this.db.query(`DELETE FROM payment_schedules WHERE loan_id = $1`, [
+      loanId,
+    ]);
 
-    if (lastActualPayment) {
-      startFromPaymentNumber = lastActualPayment.payment_number + 1;
-      startingPrincipal = lastActualPayment.remaining_principal;
-      startingOutstandingInterest =
-        lastActualPayment.remaining_outstanding_interest ?? 0;
-      startDate = new Date(lastActualPayment.payment_date);
-      startDate.setMonth(startDate.getMonth() + 1);
-    } else {
-      startFromPaymentNumber = 1;
-      startingPrincipal = loan.starting_principal;
-      startingOutstandingInterest = loan.accrued_interest ?? 0;
-      startDate = new Date(loan.start_date);
-    }
+    await this.saveSchedule(loanId, 'loan', schedule);
+    await this.processAllPendingPayments(loanId);
 
-    await this.db.query(
-      `
-      DELETE FROM payment_schedules
-      WHERE loan_id = $1
-      AND is_actual = FALSE
-      AND payment_number >= $2
-      `,
-      [loan.id, startFromPaymentNumber],
-    );
-
-    const schedules: PaymentScheduleEntry[] = this.calculatePaymentSchedule(
-      paymentScheduleInput,
-      {
-        startFromPaymentNumber,
-        startingPrincipal,
-        startDate,
-        startingOutstandingInterest,
-      },
-    );
-
-    await this.saveSchedule(loan.id, 'loan', schedules);
-
-    await this.processAllPendingPayments(loan.id);
-
-    return this.getSchedules(loan.id, 'loan');
+    return this.getSchedules(loanId, 'loan');
   }
 
   async saveSchedule(
@@ -212,6 +192,13 @@ export class PaymentScheduleService {
     schedule: PaymentScheduleEntry[],
   ) {
     const idColumn = type === 'loan' ? 'loan_id' : 'simulation_loan_id';
+
+    // A paid-off loan produces no payments, which would build a VALUES clause
+    // with no rows.
+    if (schedule.length === 0) {
+      return this.getSchedules(loanId, type);
+    }
+
     const values = schedule
       .map((_, i) => {
         const offset = i * 7 + 2;
@@ -275,37 +262,101 @@ export class PaymentScheduleService {
     );
   }
 
-  async recalculateScheduleForLoan(loanId: BigInt) {
-    const rows = await this.db.query(
-      `SELECT id, user_id, name, lender, starting_principal, accrued_interest, interest_rate, minimum_payment,
-              extra_payment, extra_payment_start_date, start_date, payment_day_of_month
-       FROM loans WHERE id = $1`,
-      [loanId],
+  // Copies simulation entries whose date has passed onto the loans they affect,
+  // so a projection the user has lived through becomes part of their recorded
+  // history. Only ever inserts — never edits or deletes a loan's own entries —
+  // and the `applied` flag makes it idempotent. The user corrects the promoted
+  // amount afterwards if what they actually paid differed.
+  //
+  // This runs in the daily cron *before* is_actual is set, so a row hardens
+  // with the promoted entry already in its inputs. If it ran afterwards, the
+  // next regeneration would silently rewrite payments already recorded.
+  async promoteDueSimulationEntries(): Promise<number> {
+    const activeUsers = await this.db.query(
+      `SELECT active_simulation_id
+       FROM users WHERE active_simulation_id IS NOT NULL`,
     );
-    if (!rows[0]) return;
-    await this.generateScheduleForExistingLoan(rows[0] as any);
+
+    const touchedLoans = new Set<string>();
+
+    for (const { active_simulation_id } of activeUsers) {
+      // The target is the first loan by payoff order that still has a balance,
+      // matching how runSimulation directs the extra payment.
+      const [target] = await this.db.query(
+        `SELECT sl.loan_id
+         FROM simulation_loans sl
+         JOIN loans l ON l.id = sl.loan_id
+         WHERE sl.simulation_id = $1
+           AND COALESCE(
+                 (SELECT remaining_principal FROM payment_schedules
+                  WHERE loan_id = sl.loan_id AND is_actual = TRUE
+                  ORDER BY payment_number DESC LIMIT 1),
+                 l.starting_principal) > 0.01
+         ORDER BY sl.payoff_order ASC
+         LIMIT 1`,
+        [active_simulation_id],
+      );
+      if (!target) continue;
+
+      const loanId = target.loan_id;
+
+      const dueExtras = await this.db.query(
+        `UPDATE simulation_extra_payments SET applied = TRUE
+         WHERE simulation_id = $1 AND applied = FALSE AND start_date <= CURRENT_DATE
+         RETURNING amount, start_date`,
+        [active_simulation_id],
+      );
+
+      for (const ep of dueExtras) {
+        await this.db.query(
+          `INSERT INTO loan_extra_payments (loan_id, amount, start_date)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (loan_id, start_date) DO UPDATE SET amount = EXCLUDED.amount`,
+          [loanId, ep.amount, ep.start_date],
+        );
+        touchedLoans.add(String(loanId));
+      }
+
+      const dueLumps = await this.db.query(
+        `UPDATE simulation_lump_sum_payments SET applied = TRUE
+         WHERE simulation_id = $1 AND applied = FALSE AND date <= CURRENT_DATE
+         RETURNING amount, date`,
+        [active_simulation_id],
+      );
+
+      for (const ls of dueLumps) {
+        await this.db.query(
+          `INSERT INTO loan_lump_sum_payments (loan_id, amount, date) VALUES ($1, $2, $3)`,
+          [loanId, ls.amount, ls.date],
+        );
+        touchedLoans.add(String(loanId));
+      }
+    }
+
+    for (const loanId of touchedLoans) {
+      await this.regenerateScheduleForLoan(BigInt(loanId));
+    }
+
+    return touchedLoans.size;
   }
 
+  // Compares against CURRENT_DATE rather than a JS Date: the cron fires at
+  // 03:38 UTC, which is the previous evening in the user's timezone, and
+  // payment_date is a date — marshalling a timestamp through would let the day
+  // boundary shift. Scoped to loan rows so a simulation's projections are
+  // never hardened into actuals.
   async processAllPendingPayments(loanId?: BigInt) {
-    const today = new Date();
-    let loanIdCondition = ``;
-    let values: any[] = [today];
-
-    if (loanId) {
-      loanIdCondition = `AND loan_id = $2`;
-      values.push(loanId);
-    }
+    const loanIdCondition = loanId ? `AND loan_id = $1` : `AND loan_id IS NOT NULL`;
 
     await this.db.query(
       `
       UPDATE payment_schedules
       SET is_actual = TRUE
       WHERE is_actual = FALSE
-      AND payment_date <= $1
+      AND payment_date <= CURRENT_DATE
       ${loanIdCondition}
-      RETURNING *
       `,
-      values,
+      loanId ? [loanId] : [],
     );
   }
 }

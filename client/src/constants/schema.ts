@@ -11,8 +11,7 @@ export const loanDbSchema = z.object({
   current_outstanding_interest: z.number(),
   interest_rate: z.number(),
   minimum_payment: z.number(),
-  extra_payment: z.number().nullable(),
-  extra_payment_start_date: z.date().nullable(),
+  current_extra_payment: z.number().nullable(),
   start_date: z.string(),
   payment_day_of_month: z.number(),
   payoff_date: z.date(),
@@ -29,13 +28,20 @@ export const loanTableSchema = z.object({
   current_principal: z.string(),
   current_outstanding_interest: z.string(),
   minimum_payment: z.string(),
-  extra_payment: z.string(),
-  extra_payment_start_date: z.string(),
+  current_extra_payment: z.string(),
   start_date: z.string(),
   next_payment_date: z.string(),
   payoff_date: z.string(),
   total_interest_paid: z.string(),
   total_amount_paid: z.string(),
+})
+
+// A dated step in the loan's recurring extra payment. amount 0 records that
+// the extra payment stopped on that date.
+export const loanExtraPaymentSchema = z.object({
+  id: z.number().optional(),
+  amount: z.number().min(0),
+  start_date: z.date(),
 })
 
 export const loanFormSchema = z.object({
@@ -49,8 +55,7 @@ export const loanFormSchema = z.object({
   accrued_interest: z.number().nonnegative().optional(),
   interest_rate: z.number().min(0).max(100),
   minimum_payment: z.number().positive(),
-  extra_payment: z.number().nonnegative().optional(),
-  extra_payment_start_date: z.date(),
+  extra_payments: z.array(loanExtraPaymentSchema),
 })
 
 export const StrategyType = {
@@ -225,6 +230,7 @@ export const LoanProgressSchema = z.object({
 export type LoanDb = z.infer<typeof loanDbSchema>
 export type LoanTable = z.infer<typeof loanTableSchema>
 export type LoanForm = z.infer<typeof loanFormSchema>
+export type LoanExtraPayment = z.infer<typeof loanExtraPaymentSchema>
 export type CreateSimulationInput = z.infer<typeof createSimulationSchema>
 export type StrategyType = (typeof StrategyType)[keyof typeof StrategyType]
 export type Simulation = z.infer<typeof SimulationSchema>

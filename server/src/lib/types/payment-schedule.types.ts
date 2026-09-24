@@ -1,12 +1,14 @@
+import { ExtraPaymentEntry, LumpSumEntry } from './loan.types';
+
 export interface PaymentScheduleInput {
   starting_principal: number;
   interest_rate: number;
   start_date: Date;
   payment_day_of_month: number;
   minimum_payment: number;
-  extra_payment: number | null;
-  extra_payment_start_date: Date | null;
   accrued_interest?: number;
+  extra_payments?: ExtraPaymentEntry[];
+  lump_sums?: LumpSumEntry[];
 }
 
 export interface PaymentScheduleEntry {

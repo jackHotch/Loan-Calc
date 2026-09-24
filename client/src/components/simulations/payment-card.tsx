@@ -11,6 +11,7 @@ interface PaymentCardProps {
   date: Date
   onDateChange: (d: Date) => void
   onPaymentDelete: () => void
+  minDate?: Date
 }
 
 export const PaymentCard = ({
@@ -22,6 +23,7 @@ export const PaymentCard = ({
   date,
   onDateChange,
   onPaymentDelete,
+  minDate,
 }: PaymentCardProps) => {
   const decreaseBtn = (
     <button onClick={decreaseButtonAction} className='flex justify-center items-center bg-secondary cursor-pointer rounded-full w-4 h-4 border p-4'>
@@ -48,7 +50,7 @@ export const PaymentCard = ({
           <span className='text-primary text-sm'>{formatCurrency(amount)}</span>
           {increaseBtn}
         </div>
-        <DatePicker value={date} onChange={onDateChange} />
+        <DatePicker value={date} onChange={onDateChange} minDate={minDate} />
         <div
           onClick={onPaymentDelete}
           className='flex w-full justify-center items-center gap-1.5 border border-red-500/50 px-2 py-1.5 text-xs text-red-500/50 cursor-pointer'
@@ -62,7 +64,7 @@ export const PaymentCard = ({
         {decreaseBtn}
         <div className='text-primary'>{formatCurrency(amount)}</div>
         {increaseBtn}
-        <DatePicker value={date} onChange={onDateChange} />
+        <DatePicker value={date} onChange={onDateChange} minDate={minDate} />
         <div
           onClick={onPaymentDelete}
           className='flex justify-center items-center border border-red-500/50 p-1 text-xs text-red-500/50 cursor-pointer'

@@ -55,7 +55,7 @@ export const Summary = ({
         .filter((ep) => new Date(ep.start_date as unknown as string) <= targetNextDate)
         .sort((a, b) => new Date(b.start_date as unknown as string).getTime() - new Date(a.start_date as unknown as string).getTime())
       const simExtraAtNext = Number(active[0]?.amount ?? 0)
-      const currentLoanExtra = targetLoan.extra_payment != null ? Number(targetLoan.extra_payment) : 0
+      const currentLoanExtra = Number(targetLoan.current_extra_payment ?? 0)
       extraDelta = simExtraAtNext - currentLoanExtra
     }
 

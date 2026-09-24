@@ -6,8 +6,9 @@ import {
 } from './dto/create-simulation.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
-import { LoanDb } from 'src/lib/types/loan.types';
+import { ExtraPaymentEntry, LoanDb } from 'src/lib/types/loan.types';
 import { LoansService } from 'src/loans/loans.service';
+import { resolveExtraPayment } from 'src/lib/utils';
 import Decimal from 'decimal.js';
 
 @Injectable()
@@ -45,14 +46,7 @@ export class SimulationsService {
     extraPayments: { amount: number; start_date: Date }[],
     date: Date,
   ): Decimal {
-    const sorted = [...(extraPayments ?? [])]
-      .filter((ep) => new Date(ep.start_date) <= date)
-      .sort(
-        (a, b) =>
-          new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
-      );
-
-    return sorted.length > 0 ? new Decimal(sorted[0].amount) : new Decimal(0);
+    return resolveExtraPayment(extraPayments, date);
   }
 
   async runSimulation(
@@ -81,9 +75,12 @@ export class SimulationsService {
         const simulationStartDate = new Date(
           lastActualPayment ? lastActualPayment.payment_date : l.start_date,
         );
+        const loanExtraPayments =
+          await this.paymentSchedules.getLoanExtraPayments(l.id);
 
         return {
           ...l,
+          loanExtraPayments,
           simulationBalance: new Decimal(l.current_principal),
           simulationOutstandingInterest: new Decimal(
             lastActualPayment
@@ -152,15 +149,24 @@ export class SimulationsService {
         const paymentDate = new Date(loan.simulationStartdate);
         paymentDate.setMonth(paymentDate.getMonth() + monthCount);
 
-        const extraPaymentPool = this.getActiveExtraPayment(
-          extraPayments,
+        // Every loan keeps paying whatever extra it already has recorded — a
+        // simulation about one loan must not pretend the user stopped paying
+        // extra on the others. On the target loan the simulation's entries are
+        // merged in and supersede from their start dates forward, by the same
+        // latest-entry-wins rule used everywhere else.
+        const ownExtra = resolveExtraPayment(
+          loan.loanExtraPayments,
+          paymentDate,
+        );
+        const targetExtra = resolveExtraPayment(
+          [...loan.loanExtraPayments, ...(extraPayments ?? [])],
           paymentDate,
         ).plus(cascadeBonus);
 
         let extraPaymentApplied: Decimal =
           loan.extraPaymentTarget === true
-            ? extraPaymentPool.plus(monthlyOverflow).plus(lumpSumForMonth)
-            : monthlyOverflow;
+            ? targetExtra.plus(monthlyOverflow).plus(lumpSumForMonth)
+            : ownExtra.plus(monthlyOverflow);
 
         let remainingPrincipal = new Decimal(loan.simulationBalance);
 
@@ -1116,213 +1122,22 @@ export class SimulationsService {
     );
   }
 
-  private async applySimulationToLoans(
-    userId: BigInt,
-    simulationId: BigInt,
-  ): Promise<void> {
-    const today = new Date();
-
-    // Fetch simulation extra_payments and lump_sum_payments
-    const [simRow] = await this.db.query(
-      `SELECT
-         (SELECT json_agg(ep.* ORDER BY ep.start_date)
-          FROM simulation_extra_payments ep WHERE ep.simulation_id = $1) AS extra_payments,
-         (SELECT json_agg(lsp.* ORDER BY lsp.date)
-          FROM simulation_lump_sum_payments lsp WHERE lsp.simulation_id = $1) AS lump_sum_payments
-       FROM simulations WHERE id = $1 AND user_id = $2`,
-      [simulationId, userId],
-    );
-    const extraPayments: { amount: number; start_date: Date }[] =
-      simRow?.extra_payments ?? [];
-    const lumpSums: { id: number; amount: number; date: Date; applied: boolean }[] =
-      simRow?.lump_sum_payments ?? [];
-
-    // Fetch simulation loans ordered by payoff_order so we know which is the current target
-    const simLoanRows = await this.db.query(
-      `SELECT sl.loan_id,
-              COALESCE(
-                (SELECT remaining_principal FROM payment_schedules
-                 WHERE loan_id = sl.loan_id AND is_actual = TRUE
-                 ORDER BY payment_number DESC LIMIT 1),
-                l.starting_principal
-              ) AS current_principal
-       FROM simulation_loans sl
-       JOIN loans l ON l.id = sl.loan_id
-       WHERE sl.simulation_id = $1
-       ORDER BY sl.payoff_order ASC`,
-      [simulationId],
-    );
-
-    // The current extra-payment target is the first loan (by payoff_order) with a balance
-    const targetLoanId = simLoanRows.find(
-      (r) => Number(r.current_principal) > 0.01,
-    )?.loan_id ?? null;
-
-    const activeExtra = this.getActiveExtraPayment(extraPayments, today);
-    const activeEp =
-      activeExtra.gt(0)
-        ? [...(extraPayments ?? [])]
-            .filter((ep) => new Date(ep.start_date) <= today)
-            .sort(
-              (a, b) =>
-                new Date(b.start_date).getTime() -
-                new Date(a.start_date).getTime(),
-            )[0]
-        : null;
-
-    // Unapplied lump sums whose date has passed — applied once to the target loan
-    const pendingLumps = lumpSums.filter(
-      (lsp) => !lsp.applied && new Date(lsp.date) <= today,
-    );
-
-    for (const { loan_id, current_principal } of simLoanRows) {
-      const isTarget =
-        targetLoanId !== null && String(loan_id) === String(targetLoanId);
-
-      // Snapshot original values (only if not already snapshotted for this activation)
-      await this.db.query(
-        `UPDATE loans
-         SET pre_simulation_extra_payment = COALESCE(pre_simulation_extra_payment, extra_payment),
-             pre_simulation_extra_payment_start_date = COALESCE(pre_simulation_extra_payment_start_date, extra_payment_start_date),
-             pre_simulation_current_principal = COALESCE(pre_simulation_current_principal, $2)
-         WHERE id = $1`,
-        [loan_id, current_principal],
-      );
-
-      // Apply extra payment only to the target loan; clear it on all others
-      if (isTarget && activeEp) {
-        await this.db.query(
-          `UPDATE loans SET extra_payment = $1, extra_payment_start_date = $2 WHERE id = $3`,
-          [activeExtra.toNumber(), activeEp.start_date, loan_id],
-        );
-      } else {
-        await this.db.query(
-          `UPDATE loans SET extra_payment = NULL, extra_payment_start_date = NULL WHERE id = $1`,
-          [loan_id],
-        );
-      }
-
-      // Apply pending lump sums only to the target loan
-      if (isTarget) {
-        for (const lsp of pendingLumps) {
-          await this.db.query(
-            `UPDATE payment_schedules
-             SET remaining_principal = GREATEST(0, remaining_principal - $1)
-             WHERE loan_id = $2
-               AND is_actual = TRUE
-               AND payment_number = (
-                 SELECT MAX(payment_number) FROM payment_schedules
-                 WHERE loan_id = $2 AND is_actual = TRUE
-               )`,
-            [lsp.amount, loan_id],
-          );
-          await this.db.query(
-            `UPDATE simulation_lump_sum_payments SET applied = TRUE WHERE id = $1`,
-            [lsp.id],
-          );
-        }
-      }
-
-      // Regenerate the projected payment schedule for this loan
-      await this.paymentSchedules.recalculateScheduleForLoan(
-        BigInt(loan_id),
-      );
-    }
-  }
-
-  private async restoreLoansFromSnapshot(
-    userId: BigInt,
-    simulationId: BigInt,
-  ): Promise<void> {
-    const simLoanRows = await this.db.query(
-      `SELECT sl.loan_id FROM simulation_loans sl
-       JOIN simulations s ON s.id = sl.simulation_id
-       WHERE sl.simulation_id = $1 AND s.user_id = $2`,
-      [simulationId, userId],
-    );
-
-    for (const { loan_id } of simLoanRows) {
-      const [loan] = await this.db.query(
-        `SELECT pre_simulation_extra_payment, pre_simulation_extra_payment_start_date,
-                pre_simulation_current_principal
-         FROM loans WHERE id = $1`,
-        [loan_id],
-      );
-      if (!loan || loan.pre_simulation_current_principal == null) continue;
-
-      // Restore extra payment fields
-      await this.db.query(
-        `UPDATE loans
-         SET extra_payment = $1,
-             extra_payment_start_date = $2,
-             pre_simulation_extra_payment = NULL,
-             pre_simulation_extra_payment_start_date = NULL,
-             pre_simulation_current_principal = NULL
-         WHERE id = $3`,
-        [
-          loan.pre_simulation_extra_payment,
-          loan.pre_simulation_extra_payment_start_date,
-          loan_id,
-        ],
-      );
-
-      // Restore last actual payment's remaining_principal
-      await this.db.query(
-        `UPDATE payment_schedules
-         SET remaining_principal = $1
-         WHERE loan_id = $2
-           AND is_actual = TRUE
-           AND payment_number = (
-             SELECT MAX(payment_number) FROM payment_schedules
-             WHERE loan_id = $2 AND is_actual = TRUE
-           )`,
-        [loan.pre_simulation_current_principal, loan_id],
-      );
-
-      // Regenerate projected schedule from restored state
-      await this.paymentSchedules.recalculateScheduleForLoan(
-        BigInt(loan_id),
-      );
-    }
-
-    // Reset applied flag on all lump sums for this simulation
-    await this.db.query(
-      `UPDATE simulation_lump_sum_payments SET applied = FALSE WHERE simulation_id = $1`,
-      [simulationId],
-    );
-  }
-
+  // Activating and deactivating only move a flag. A simulation never writes to
+  // a loan, so there is nothing to apply on activate and nothing to restore on
+  // deactivate — which is what makes switching simulations unable to change a
+  // loan's recorded balance.
   async setAsActive(userId: BigInt, simulationId: BigInt) {
-    // Deactivate previous active simulation if different
-    const [currentUser] = await this.db.query(
-      `SELECT active_simulation_id FROM users WHERE id = $1`,
-      [userId],
-    );
-    const prevActiveId = currentUser?.active_simulation_id;
-    if (prevActiveId && String(prevActiveId) !== String(simulationId)) {
-      await this.restoreLoansFromSnapshot(userId, BigInt(prevActiveId));
-    }
-
-    await this.applySimulationToLoans(userId, simulationId);
-
     await this.db.query(
       `UPDATE users SET active_simulation_id = $1 WHERE id = $2`,
       [simulationId, userId],
     );
 
+    await this.recalculateSimulationSchedule(userId, simulationId);
+
     return { active_simulation_id: String(simulationId) };
   }
 
   async deactivateSimulation(userId: BigInt) {
-    const [currentUser] = await this.db.query(
-      `SELECT active_simulation_id FROM users WHERE id = $1`,
-      [userId],
-    );
-    const activeId = currentUser?.active_simulation_id;
-    if (activeId) {
-      await this.restoreLoansFromSnapshot(userId, BigInt(activeId));
-    }
-
     await this.db.query(
       `UPDATE users SET active_simulation_id = NULL WHERE id = $1`,
       [userId],
@@ -1339,7 +1154,7 @@ export class SimulationsService {
     const activeId = currentUser?.active_simulation_id;
     if (!activeId) return { synced: false };
 
-    await this.applySimulationToLoans(userId, BigInt(activeId));
+    // Projections only — the loan's own schedule is not touched here.
     await this.recalculateSimulationSchedule(userId, BigInt(activeId));
 
     return { synced: true };
