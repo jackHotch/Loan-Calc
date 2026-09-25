@@ -173,6 +173,14 @@ export function CreateSimulation() {
     })
   }
 
+  function setLumpSumPaymentAmount(id: number, amount: number) {
+    setLumpSumPayments((prev) => prev.map((ep, key) => (key == id ? { ...ep, amount } : ep)))
+  }
+
+  function setExtraPaymentAmount(id: number, amount: number) {
+    setExtraPayments((prev) => prev.map((ep, key) => (key == id ? { ...ep, amount } : ep)))
+  }
+
   function addExtraPayment() {
     setExtraPayments((prev) => [...prev, { amount: 100, start_date: new Date() }])
   }
@@ -408,6 +416,7 @@ export function CreateSimulation() {
                   decreaseButtonAction={() => addToLumpSumPayment(key, -25)}
                   increaseButtonAction={() => addToLumpSumPayment(key, 25)}
                   amount={lsp.amount}
+                  onAmountChange={(val) => setLumpSumPaymentAmount(key, val)}
                   date={lsp.date}
                   minDate={earliestNextPaymentDate}
                   onDateChange={(val) => handleLumpSumPaymentDateChange(key, val)}
@@ -452,6 +461,7 @@ export function CreateSimulation() {
                   decreaseButtonAction={() => addToExtraPayment(key, -25)}
                   increaseButtonAction={() => addToExtraPayment(key, 25)}
                   amount={ep.amount}
+                  onAmountChange={(val) => setExtraPaymentAmount(key, val)}
                   date={ep.start_date}
                   minDate={earliestNextPaymentDate}
                   onDateChange={(val) => handleExtraPaymentDateChange(key, val)}
