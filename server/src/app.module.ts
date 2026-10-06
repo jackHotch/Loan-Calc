@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { WebhookModule } from './webhook/webhook.module';
 import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from './database/database.module';
 import { LoansModule } from './loans/loans.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
@@ -14,6 +15,7 @@ import { SimulationsModule } from './simulations/simulations.module';
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    ScheduleModule.forRoot(),
     WebhookModule,
     UsersModule,
     DatabaseModule,
