@@ -9,14 +9,10 @@ export class PaymentScheduleController {
     private readonly paymentScheduleService: PaymentScheduleService,
   ) {}
 
-  // Daily cron. Promotion must happen before payments are marked actual, so a
-  // row hardens with the promoted entry already in its inputs.
+  // Manual trigger for the daily cron job (see runDailyPaymentJob).
   @Patch()
-  async proccessPendingPaymentsForAllLoans() {
-    const promotedLoans =
-      await this.paymentScheduleService.promoteDueSimulationEntries();
-    await this.paymentScheduleService.processAllPendingPayments();
-    return { promotedLoans };
+  proccessPendingPaymentsForAllLoans() {
+    return this.paymentScheduleService.runDailyPaymentJob();
   }
 
   @Patch('/:id')

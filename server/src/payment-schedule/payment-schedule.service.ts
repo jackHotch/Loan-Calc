@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import Decimal from 'decimal.js';
 import {
   CalculateScheduleOptions,
@@ -19,7 +20,25 @@ import {
 
 @Injectable()
 export class PaymentScheduleService {
+  private readonly logger = new Logger(PaymentScheduleService.name);
+
   constructor(private db: DatabaseService) {}
+
+  // Daily cron. Promotion must happen before payments are marked actual, so a
+  // row hardens with the promoted entry already in its inputs.
+  @Cron('0 1 * * *', { name: 'process-pending-payments' })
+  async runDailyPaymentJob() {
+    this.logger.log('Running daily payment job');
+    try {
+      const promotedLoans = await this.promoteDueSimulationEntries();
+      await this.processAllPendingPayments();
+      this.logger.log(`Daily payment job done, promoted ${promotedLoans} loans`);
+      return { promotedLoans };
+    } catch (err) {
+      this.logger.error('Daily payment job failed', err.stack);
+      throw err;
+    }
+  }
 
   calculatePaymentSchedule(
     loan: PaymentScheduleInput,
