@@ -10,24 +10,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      - name: Build server
+        working-directory: server
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build client
+        working-directory: client
+        env:
+          # NEXT_PUBLIC_* values are inlined into the bundle at build time
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package build output
+        run: tar czf build.tgz --exclude=client/.next/cache server/dist client/.next
+
+      - name: Copy build to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: build.tgz
+          target: ~/loan-tracker
+
+      - name: Install and restart on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 15m
           script: |
             set -e
             cd ~/loan-tracker
             git fetch origin production
-            git reset --hard origin/production
+            git reset --hard ${{ github.sha }}
 
-            cd server
-            npm ci
-            npm run build
+            rm -rf server/dist client/.next
+            tar xzf build.tgz
+            rm build.tgz
 
-            cd ../client
-            npm ci
-            npm run build
+            cd server && npm ci --omit=dev
+            cd ../client && npm ci --omit=dev
 
             pm2 reload loan-tracker --update-env
