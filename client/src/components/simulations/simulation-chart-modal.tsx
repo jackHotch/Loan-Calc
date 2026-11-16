@@ -28,7 +28,7 @@ export function SimulationChartModal({ simulation, loans }: Props) {
       const name = nameMap.get(simLoan.loan_id) ?? String(simLoan.loan_id)
       if (!names.includes(name)) names.push(name)
 
-      for (const entry of simLoan.payment_schedule) {
+      for (const entry of simLoan.payment_schedule ?? []) {
         const date = format(new Date(entry.payment_date), 'yyyy-MM')
         if (!dateMap.has(date)) dateMap.set(date, { date })
         dateMap.get(date)![name] = entry.remaining_principal

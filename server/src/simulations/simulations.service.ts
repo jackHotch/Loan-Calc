@@ -360,7 +360,7 @@ export class SimulationsService {
             'id', sl.id,
             'loan_id', sl.loan_id,
             'payoff_order', sl.payoff_order,
-            'payment_schedule', (
+            'payment_schedule', COALESCE((
               SELECT json_agg(
                 json_build_object(
                   'id', ps.id,
@@ -375,7 +375,7 @@ export class SimulationsService {
               )
               FROM payment_schedules ps
               WHERE ps.simulation_loan_id = sl.id
-            )
+            ), '[]'::json)
           )
           ORDER BY sl.payoff_order
         ) AS loans
@@ -404,7 +404,7 @@ export class SimulationsService {
             'id', sl.id,
             'loan_id', sl.loan_id,
             'payoff_order', sl.payoff_order,
-            'payment_schedule', (
+            'payment_schedule', COALESCE((
               SELECT json_agg(
                 json_build_object(
                   'id', ps.id,
@@ -419,7 +419,7 @@ export class SimulationsService {
               )
               FROM payment_schedules ps
               WHERE ps.simulation_loan_id = sl.id
-            )
+            ), '[]'::json)
           )
           ORDER BY sl.payoff_order
         ) AS loans
@@ -456,6 +456,8 @@ export class SimulationsService {
       [simulationId, userId],
     );
     const current = existing[0];
+
+    const priorApplied = await this.getAppliedDates(simulationId);
 
     const needsRecalculation =
       current.strategy_type !== simulation.strategy_type ||
@@ -558,7 +560,53 @@ export class SimulationsService {
       }
     }
 
+    await this.restoreAppliedFlags(simulationId, priorApplied);
+
     return this.getSimulationComparison(userId, current.id);
+  }
+
+  private async getAppliedDates(simulationId: BigInt) {
+    const [extras, lumps] = await Promise.all([
+      this.db.query(
+        `SELECT start_date::text AS d FROM simulation_extra_payments
+         WHERE simulation_id = $1 AND applied = TRUE`,
+        [simulationId],
+      ),
+      this.db.query(
+        `SELECT date::text AS d FROM simulation_lump_sum_payments
+         WHERE simulation_id = $1 AND applied = TRUE`,
+        [simulationId],
+      ),
+    ]);
+    return {
+      extras: extras.map((r) => r.d as string),
+      lumps: lumps.map((r) => r.d as string),
+    };
+  }
+
+  // Editing a simulation deletes and reinserts its entries, which resets
+  // `applied` to FALSE. Left that way, the daily promotion would copy every
+  // past entry onto whichever loan is the target *now* — after a payoff that
+  // is the next loan, and its schedule regenerates from its start date, so the
+  // old amounts would land retroactively across its history. Past-dated
+  // entries are history the user records on the loans themselves, so they
+  // count as applied too.
+  private async restoreAppliedFlags(
+    simulationId: BigInt,
+    prior: { extras: string[]; lumps: string[] },
+  ) {
+    await this.db.query(
+      `UPDATE simulation_extra_payments SET applied = TRUE
+       WHERE simulation_id = $1
+         AND (start_date < CURRENT_DATE OR start_date = ANY($2::date[]))`,
+      [simulationId, prior.extras],
+    );
+    await this.db.query(
+      `UPDATE simulation_lump_sum_payments SET applied = TRUE
+       WHERE simulation_id = $1
+         AND (date < CURRENT_DATE OR date = ANY($2::date[]))`,
+      [simulationId, prior.lumps],
+    );
   }
 
   sameExtraPayments(
