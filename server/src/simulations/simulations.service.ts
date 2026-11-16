@@ -8,7 +8,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { PaymentScheduleService } from 'src/payment-schedule/payment-schedule.service';
 import { ExtraPaymentEntry, LoanDb } from 'src/lib/types/loan.types';
 import { LoansService } from 'src/loans/loans.service';
-import { resolveExtraPayment } from 'src/lib/utils';
+import { getNewPaymentDate, resolveExtraPayment } from 'src/lib/utils';
 import Decimal from 'decimal.js';
 
 @Injectable()
@@ -56,43 +56,134 @@ export class SimulationsService {
     cascade: boolean,
     lumpSumPayments: LumpSumPaymentDto[] = [],
   ) {
-    const payoffOrder = strategy.includes('Interest')
-      ? strategy.includes('Avalanche')
-        ? loans?.sort((a, b) =>
-            b.interest_rate !== a.interest_rate
-              ? b.interest_rate - a.interest_rate
-              : b.current_principal - a.current_principal,
-          )
-        : loans?.sort((a, b) => a.interest_rate - b.interest_rate)
-      : strategy.includes('Avalanche')
-        ? loans?.sort((a, b) => b.current_principal - a.current_principal)
-        : loans?.sort((a, b) => a.current_principal - b.current_principal);
+    // Interest-focused strategies rank by rate and break ties on remaining
+    // principal; the others rank by principal and break ties on rate. Both
+    // keys run in the strategy's direction — Avalanche takes the higher value
+    // first, Snowball the lower — and the loan id makes the order stable.
+    const byRate = (l: LoanDb) => Number(l.interest_rate);
+    const byPrincipal = (l: LoanDb) => Number(l.current_principal);
+    const [primary, secondary] = strategy.includes('Interest')
+      ? [byRate, byPrincipal]
+      : [byPrincipal, byRate];
+    const direction = strategy.includes('Avalanche') ? -1 : 1;
+
+    const payoffOrder = loans?.sort(
+      (a, b) =>
+        direction * (primary(a) - primary(b)) ||
+        direction * (secondary(a) - secondary(b)) ||
+        Number(a.id) - Number(b.id),
+    );
+
+    // Loans on different payment days stop being recorded in different months:
+    // on the 16th, a loan paid on the 6th has this month recorded while one
+    // paid on the 25th does not. Counting months per loan from those points
+    // put the loans a calendar month apart, so money freed by one landed on
+    // the other's payment from the wrong month. The simulation instead walks
+    // calendar months together, starting from the first month no loan has
+    // paid in yet. Payments still due in a month that has already started
+    // come from the loan's own schedule, since that month's budget was
+    // already spent on the payments that went out.
+    const lastActuals: any[] = await Promise.all(
+      payoffOrder.map((l) => this.paymentSchedules.getLastActualPayment(l.id)),
+    );
+
+    const lastActualTimes = lastActuals
+      .filter(Boolean)
+      .map((p) => new Date(p.payment_date).getTime());
+    const projectionStart = (() => {
+      if (lastActualTimes.length > 0) {
+        const latest = new Date(Math.max(...lastActualTimes));
+        return new Date(latest.getFullYear(), latest.getMonth() + 1, 1);
+      }
+      const earliest = new Date(
+        Math.min(
+          ...payoffOrder.map((l) =>
+            getNewPaymentDate(
+              new Date(l.start_date),
+              l.payment_day_of_month,
+            ).getTime(),
+          ),
+        ),
+      );
+      return new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+    })();
+    const projectionStartIso = `${projectionStart.getFullYear()}-${String(
+      projectionStart.getMonth() + 1,
+    ).padStart(2, '0')}-01`;
 
     const loanStates = await Promise.all(
-      payoffOrder.map(async (l) => {
-        const lastActualPayment: any =
-          await this.paymentSchedules.getLastActualPayment(l.id);
-        const simulationStartDate = new Date(
-          lastActualPayment ? lastActualPayment.payment_date : l.start_date,
+      payoffOrder.map(async (l, i) => {
+        const lastActualPayment = lastActuals[i];
+
+        const pendingRows = await this.db.query(
+          `SELECT payment_number, payment_date, principal_paid, interest_paid,
+                  extra_payment, remaining_principal, remaining_outstanding_interest
+           FROM payment_schedules
+           WHERE loan_id = $1 AND is_actual = FALSE AND payment_date < $2::date
+           ORDER BY payment_number`,
+          [l.id, projectionStartIso],
         );
+        const pending = pendingRows.map((r) => ({
+          payment_number: Number(r.payment_number),
+          payment_date: new Date(r.payment_date),
+          principal_paid: Number(r.principal_paid),
+          interest_paid: Number(r.interest_paid),
+          extra_payment: Number(r.extra_payment),
+          remaining_principal: Number(r.remaining_principal),
+          remaining_outstanding_interest: Number(
+            r.remaining_outstanding_interest ?? 0,
+          ),
+        }));
+        const lastPending = pending[pending.length - 1];
+
+        // A loan with no payments yet may not start until after the
+        // projection does.
+        const firstPaymentDate =
+          !lastActualPayment && pending.length === 0
+            ? getNewPaymentDate(new Date(l.start_date), l.payment_day_of_month)
+            : null;
+
         return {
           ...l,
-          simulationBalance: new Decimal(l.current_principal),
+          simulationBalance: new Decimal(
+            lastPending
+              ? lastPending.remaining_principal
+              : l.current_principal,
+          ),
           simulationOutstandingInterest: new Decimal(
-            lastActualPayment
-              ? (lastActualPayment.remaining_outstanding_interest ?? 0)
-              : (l.accrued_interest ?? 0),
+            lastPending
+              ? lastPending.remaining_outstanding_interest
+              : lastActualPayment
+                ? (lastActualPayment.remaining_outstanding_interest ?? 0)
+                : (l.accrued_interest ?? 0),
           ),
           payoffOrder: -1,
           extraPaymentTarget: false,
-          simulationStartdate: simulationStartDate,
+          firstPaymentDate,
           lastActualPaymentNumber: lastActualPayment
             ? lastActualPayment.payment_number
             : 0,
-          schedule: new Array(),
+          schedule: pending as any[],
         };
       }),
     );
+
+    const paymentDateFor = (
+      loan: (typeof loanStates)[number],
+      monthIndex: number,
+    ) =>
+      getNewPaymentDate(
+        new Date(
+          projectionStart.getFullYear(),
+          projectionStart.getMonth() + monthIndex - 1,
+          1,
+        ),
+        loan.payment_day_of_month,
+      );
+
+    const isPaying = (loan: (typeof loanStates)[number], monthIndex: number) =>
+      !loan.firstPaymentDate ||
+      paymentDateFor(loan, monthIndex) >= loan.firstPaymentDate;
 
     let cascadeBonus = new Decimal(0);
     let monthCount = 0;
@@ -108,26 +199,48 @@ export class SimulationsService {
     ) {
       monthCount++;
 
+      // Checked at the start of the month so a loan that is already paid off
+      // when the simulation begins frees its minimum payment from the first
+      // projected month. Checking at the end delayed it by a month. A loan
+      // paid off during month N still frees its payment in month N+1.
+      for (const s of loanStates) {
+        if (
+          s.simulationBalance.lte(0.01) &&
+          s.simulationOutstandingInterest.lte(0.01) &&
+          s.payoffOrder === -1
+        ) {
+          s.payoffOrder = payoffOrderCounter++;
+          if (cascade) {
+            cascadeBonus = cascadeBonus.plus(s.minimum_payment);
+          }
+        }
+      }
+
       for (const l of loanStates) {
         l.extraPaymentTarget = false;
       }
 
-      const target = loanStates.find((l) => l.simulationBalance.gt(0));
+      const target = loanStates.find(
+        (l) => l.simulationBalance.gt(0) && isPaying(l, monthCount),
+      );
       if (target) target.extraPaymentTarget = true;
 
       let monthlyOverflow = new Decimal(0);
 
+      const month = new Date(
+        projectionStart.getFullYear(),
+        projectionStart.getMonth() + monthCount - 1,
+        1,
+      );
+
       let lumpSumForMonth = new Decimal(0);
       if (target) {
-        const targetPaymentDate = new Date(target.simulationStartdate);
-        targetPaymentDate.setMonth(targetPaymentDate.getMonth() + monthCount);
-
         lumpSumPayments.forEach((lp, index) => {
           if (appliedLumpSumIndices.has(index)) return;
           const lpDate = new Date(lp.date);
           if (
-            lpDate.getFullYear() === targetPaymentDate.getFullYear() &&
-            lpDate.getMonth() === targetPaymentDate.getMonth()
+            lpDate.getFullYear() === month.getFullYear() &&
+            lpDate.getMonth() === month.getMonth()
           ) {
             appliedLumpSumIndices.add(index);
             lumpSumForMonth = lumpSumForMonth.plus(lp.amount);
@@ -141,9 +254,9 @@ export class SimulationsService {
           loan.simulationOutstandingInterest.lte(0)
         )
           continue;
+        if (!isPaying(loan, monthCount)) continue;
 
-        const paymentDate = new Date(loan.simulationStartdate);
-        paymentDate.setMonth(paymentDate.getMonth() + monthCount);
+        const paymentDate = paymentDateFor(loan, monthCount);
 
         // A simulation's extra payments are the entire extra budget from here
         // on. Whatever a loan is currently paying extra stops at the projection
@@ -218,18 +331,17 @@ export class SimulationsService {
 
         loan.simulationBalance = remainingPrincipal;
       }
+    }
 
-      for (const s of loanStates) {
-        if (
-          s.simulationBalance.lte(0.01) &&
-          s.simulationOutstandingInterest.lte(0.01) &&
-          s.payoffOrder === -1
-        ) {
-          s.payoffOrder = payoffOrderCounter++;
-          if (cascade) {
-            cascadeBonus = cascadeBonus.plus(s.minimum_payment);
-          }
-        }
+    // The last loan(s) paid off in the final month never reach another
+    // start-of-month check.
+    for (const s of loanStates) {
+      if (
+        s.simulationBalance.lte(0.01) &&
+        s.simulationOutstandingInterest.lte(0.01) &&
+        s.payoffOrder === -1
+      ) {
+        s.payoffOrder = payoffOrderCounter++;
       }
     }
 
