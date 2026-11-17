@@ -2,86 +2,28 @@
 
 import { useMemo } from 'react'
 import { format } from 'date-fns'
-import { LoanDb, Simulation } from '@/constants/schema'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Seperator } from '@/components/seperator'
+import { useLoanProgress } from '@/lib/api/loans'
+import { parseServerDate } from '@/lib/utils'
 
-function getNextPaymentDate(loan: LoanDb): Date {
-  const today = new Date()
-  const candidate = new Date(today.getFullYear(), today.getMonth(), loan.payment_day_of_month)
-  if (candidate < today) {
-    candidate.setMonth(candidate.getMonth() + 1)
-  }
-  return candidate
-}
+// Each loan's row for next month comes from the server — from the active
+// simulation's projection when one is active — so it carries everything that
+// lands on that loan: extra payments, lump sums, and minimums cascaded from
+// paid-off loans. The card used to rebuild these from the loan fields and
+// missed anything the simulation moved between loans.
+export function PaymentBreakdown() {
+  const { data: progress } = useLoanProgress()
 
-function getSimExtraAtDate(simulation: Simulation, date: Date): number | undefined {
-  const extraPayments = simulation.extra_payments
-  if (!extraPayments?.length) return undefined
-  const active = [...extraPayments]
-    .filter((ep) => new Date(ep.start_date as unknown as string) <= date)
-    .sort((a, b) => new Date(b.start_date as unknown as string).getTime() - new Date(a.start_date as unknown as string).getTime())
-  return Number(active[0]?.amount ?? 0)
-}
+  const upcoming = useMemo(
+    () =>
+      (progress?.per_loan ?? [])
+        .filter((l) => l.next_payment)
+        .sort((a, b) => b.next_payment!.total_payment - a.next_payment!.total_payment),
+    [progress],
+  )
 
-function computePaymentBreakdown(loan: LoanDb, nextPaymentDate: Date, lumpSumAmount = 0, overrideExtra?: number) {
-  const monthlyRate = Number(loan.interest_rate) / 100 / 12
-  const interest = Number(loan.current_principal) * monthlyRate
-  let extra: number
-  if (overrideExtra !== undefined) {
-    extra = overrideExtra
-  } else {
-    extra = Number(loan.current_extra_payment ?? 0)
-  }
-  const total = Number(loan.minimum_payment) + extra + lumpSumAmount
-  const principal = Math.max(0, total - interest)
-  return { interest, principal, total, extra }
-}
-
-export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simulation?: Simulation | null }) {
-  const { activeLoans, targetLoanId, upcomingLumpSums } = useMemo(() => {
-    const today = new Date()
-
-    let targetLoanId: number | null = null
-    let upcomingLumpSums: Array<{ id?: number; amount: number; date: Date }> = []
-
-    if (simulation) {
-      const simLoansOrdered = [...(simulation.loans ?? [])].sort((a, b) => (a.payoff_order ?? 0) - (b.payoff_order ?? 0))
-      const targetSl = simLoansOrdered.find((sl) => {
-        const loan = loans?.find((l) => String(l.id) === String(sl.loan_id))
-        return loan && loan.current_principal > 0.01
-      })
-      targetLoanId = targetSl?.loan_id ?? null
-
-      upcomingLumpSums = (simulation.lump_sum_payments ?? []).filter((lsp) => {
-        const d = new Date(lsp.date as unknown as string)
-        return d > today
-      })
-    }
-
-    const filtered = loans?.filter((l) => l.current_principal > 0.01) ?? []
-    const sorted = filtered.sort((a, b) => {
-      const nextA = getNextPaymentDate(a)
-      const nextB = getNextPaymentDate(b)
-      const isTargetA = targetLoanId !== null && String(a.id) === String(targetLoanId)
-      const isTargetB = targetLoanId !== null && String(b.id) === String(targetLoanId)
-      const extraOverrideA = isTargetA && simulation ? getSimExtraAtDate(simulation, nextA) : undefined
-      const extraOverrideB = isTargetB && simulation ? getSimExtraAtDate(simulation, nextB) : undefined
-      const lumpA = isTargetA
-        ? upcomingLumpSums.filter((lsp) => new Date(lsp.date as unknown as string) <= nextA).reduce((s, lsp) => s + lsp.amount, 0)
-        : 0
-      const lumpB = isTargetB
-        ? upcomingLumpSums.filter((lsp) => new Date(lsp.date as unknown as string) <= nextB).reduce((s, lsp) => s + lsp.amount, 0)
-        : 0
-      const { total: totalA } = computePaymentBreakdown(a, nextA, lumpA, extraOverrideA)
-      const { total: totalB } = computePaymentBreakdown(b, nextB, lumpB, extraOverrideB)
-      return totalB - totalA
-    })
-
-    return { activeLoans: sorted, targetLoanId, upcomingLumpSums }
-  }, [loans, simulation])
-
-  if (!activeLoans.length) {
+  if (!upcoming.length) {
     return (
       <Card className='flex flex-1 items-center justify-center'>
         <p className='text-muted-foreground text-sm'>No active loans</p>
@@ -95,21 +37,14 @@ export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simul
         <CardTitle className='text-base font-medium'>Next Payment Breakdown</CardTitle>
       </CardHeader>
       <CardContent className='flex flex-col gap-4 p-4 pt-0 md:min-h-0 md:flex-1 md:overflow-y-auto'>
-        {activeLoans.map((loan, i) => {
-          const nextDate = getNextPaymentDate(loan)
-          const isTargetLoan = targetLoanId !== null && String(loan.id) === String(targetLoanId)
-          const simExtraOverride = isTargetLoan && simulation ? getSimExtraAtDate(simulation, nextDate) : undefined
-          const lumpSumAmount = isTargetLoan
-            ? upcomingLumpSums
-                .filter((lsp) => new Date(lsp.date as unknown as string) <= nextDate)
-                .reduce((sum, lsp) => sum + lsp.amount, 0)
-            : 0
-          const { interest, principal, total, extra } = computePaymentBreakdown(loan, nextDate, lumpSumAmount, simExtraOverride)
-          const principalPct = (principal / total) * 100
-          const interestPct = (interest / total) * 100
+        {upcoming.map((loan, i) => {
+          const { payment_date, principal_paid: principal, interest_paid: interest, extra_payment: extra, total_payment: total } =
+            loan.next_payment!
+          const principalPct = total > 0 ? (principal / total) * 100 : 0
+          const interestPct = total > 0 ? (interest / total) * 100 : 0
 
           return (
-            <div key={String(loan.id)}>
+            <div key={String(loan.loan_id)}>
               {i > 0 && (
                 <div className='mb-4'>
                   <Seperator />
@@ -118,7 +53,7 @@ export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simul
               <div className='space-y-3'>
                 <div className='flex items-center justify-between'>
                   <p className='font-medium'>{loan.name}</p>
-                  <p className='text-muted-foreground text-xs'>Due {format(nextDate, 'MMM d')}</p>
+                  <p className='text-muted-foreground text-xs'>Due {format(parseServerDate(payment_date), 'MMM d')}</p>
                 </div>
 
                 <div className='flex items-baseline justify-between'>
@@ -153,14 +88,8 @@ export function PaymentBreakdown({ loans, simulation }: { loans: LoanDb[]; simul
 
                 {extra > 0 && (
                   <p className='text-muted-foreground text-xs'>
-                    Includes ${extra.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                    extra payment
-                  </p>
-                )}
-                {lumpSumAmount > 0 && (
-                  <p className='text-muted-foreground text-xs'>
-                    Includes ${lumpSumAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                    lump sum payment
+                    Includes ${extra.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} above
+                    the minimum payment
                   </p>
                 )}
               </div>

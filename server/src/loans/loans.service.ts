@@ -606,7 +606,8 @@ export class LoansService {
            WHERE l.user_id = ${userParam} ${idFilter})
         ) AS start
       )
-      SELECT COALESCE(SUM(ps.principal_paid + ps.interest_paid), 0) AS next_monthly_payment
+      SELECT l.id AS loan_id, ps.payment_date, ps.principal_paid,
+             ps.interest_paid, ps.extra_payment
       FROM loans l
       JOIN users u ON u.id = l.user_id
       LEFT JOIN simulation_loans sl
@@ -618,8 +619,31 @@ export class LoansService {
       END
       WHERE l.user_id = ${userParam} ${idFilter}
         AND ps.payment_date >= nm.start
-        AND ps.payment_date < nm.start + INTERVAL '1 month'`,
+        AND ps.payment_date < nm.start + INTERVAL '1 month'
+      ORDER BY ps.payment_date`,
       params,
+    );
+
+    const nextPayments = new Map(
+      nextPaymentRows.map((r) => {
+        const principal = new Decimal(r.principal_paid);
+        const interest = new Decimal(r.interest_paid);
+        return [
+          String(r.loan_id),
+          {
+            payment_date: r.payment_date,
+            principal_paid: principal.toDecimalPlaces(2).toNumber(),
+            interest_paid: interest.toDecimalPlaces(2).toNumber(),
+            extra_payment: new Decimal(r.extra_payment ?? 0)
+              .toDecimalPlaces(2)
+              .toNumber(),
+            total_payment: principal
+              .plus(interest)
+              .toDecimalPlaces(2)
+              .toNumber(),
+          },
+        ];
+      }),
     );
 
     const now = new Date();
@@ -650,6 +674,7 @@ export class LoansService {
         payoff_date: row.payoff_date,
         months_to_payoff: monthsToPayoff,
         is_active: new Decimal(row.current_principal).greaterThan(0.01),
+        next_payment: nextPayments.get(String(row.loan_id)) ?? null,
       };
     });
 
@@ -683,9 +708,10 @@ export class LoansService {
       ? currRemaining.minus(prevRemaining).dividedBy(prevRemaining).times(100).toDecimalPlaces(2).toNumber()
       : null;
 
-    const nextMonthlyPayment = new Decimal(
-      nextPaymentRows[0]?.next_monthly_payment ?? 0,
-    ).toDecimalPlaces(2).toNumber();
+    const nextMonthlyPayment = [...nextPayments.values()]
+      .reduce((sum, p) => sum.plus(p.total_payment), new Decimal(0))
+      .toDecimalPlaces(2)
+      .toNumber();
 
     return {
       summary: {

@@ -115,7 +115,7 @@ function Overview() {
           />
         </div>
         <div className='flex flex-col md:flex-35 md:min-h-0 md:min-w-0'>
-          <PaymentBreakdown loans={loans} simulation={activeSimDetail} />
+          <PaymentBreakdown />
         </div>
       </div>
     </div>
