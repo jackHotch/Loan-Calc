@@ -104,7 +104,7 @@ function Overview() {
 
   return (
     <div className='flex flex-col gap-4 p-6 md:overflow-hidden md:h-[calc(100svh-var(--header-height))]'>
-      <Summary activeSim={activeSummary} simulation={activeSimDetail} />
+      <Summary activeSim={activeSummary} />
       <div className='flex flex-col gap-4 md:flex-row md:flex-1 md:min-h-0'>
         <div className='flex flex-col md:flex-65 md:min-h-0 md:min-w-0'>
           <LoanProgressChart

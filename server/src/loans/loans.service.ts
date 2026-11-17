@@ -587,16 +587,38 @@ export class LoansService {
       params,
     );
 
+    // The next payment is one calendar month: the month after the latest one
+    // with a recorded payment. Taking each loan's next unpaid row instead mixed
+    // months when loans pay on different days (a 25th payment still due this
+    // month next to a 6th payment due next month). Loans in the active
+    // simulation are read from its projection, so it includes what the
+    // simulation moves between loans, like a paid-off loan's minimum.
     const nextPaymentRows = await this.db.query(
-      `SELECT COALESCE(SUM(next_payment.total_payment), 0) AS next_monthly_payment
+      `WITH next_month AS (
+        SELECT COALESCE(
+          (SELECT date_trunc('month', MAX(ps.payment_date)) + INTERVAL '1 month'
+           FROM payment_schedules ps
+           JOIN loans l ON l.id = ps.loan_id
+           WHERE ps.is_actual = true AND l.user_id = ${userParam} ${idFilter}),
+          (SELECT date_trunc('month', MIN(ps.payment_date))
+           FROM payment_schedules ps
+           JOIN loans l ON l.id = ps.loan_id
+           WHERE l.user_id = ${userParam} ${idFilter})
+        ) AS start
+      )
+      SELECT COALESCE(SUM(ps.principal_paid + ps.interest_paid), 0) AS next_monthly_payment
       FROM loans l
-      LEFT JOIN LATERAL (
-        SELECT total_payment
-        FROM payment_schedules
-        WHERE loan_id = l.id AND is_actual = false AND simulation_loan_id IS NULL
-        ORDER BY payment_number ASC LIMIT 1
-      ) next_payment ON true
-      WHERE l.user_id = ${userParam} ${idFilter}`,
+      JOIN users u ON u.id = l.user_id
+      LEFT JOIN simulation_loans sl
+        ON sl.simulation_id = u.active_simulation_id AND sl.loan_id = l.id
+      CROSS JOIN next_month nm
+      JOIN payment_schedules ps ON CASE
+        WHEN sl.id IS NOT NULL THEN ps.simulation_loan_id = sl.id
+        ELSE ps.loan_id = l.id AND ps.simulation_loan_id IS NULL
+      END
+      WHERE l.user_id = ${userParam} ${idFilter}
+        AND ps.payment_date >= nm.start
+        AND ps.payment_date < nm.start + INTERVAL '1 month'`,
       params,
     );
 

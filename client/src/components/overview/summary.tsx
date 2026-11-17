@@ -1,24 +1,16 @@
 'use client'
 
-import { useMemo } from 'react'
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Progress } from '../ui/progress'
 import { Seperator } from '../seperator'
-import { useLoanProgress, useLoans } from '@/lib/api/loans'
-import { Simulation, SimulationSummary } from '@/constants/schema'
+import { useLoanProgress } from '@/lib/api/loans'
+import { SimulationSummary } from '@/constants/schema'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-export const Summary = ({
-  activeSim,
-  simulation,
-}: {
-  activeSim?: SimulationSummary | null
-  simulation?: Simulation | null
-}) => {
+export const Summary = ({ activeSim }: { activeSim?: SimulationSummary | null }) => {
   const { data: currentLoanProgress } = useLoanProgress()
-  const { data: loans } = useLoans()
 
   const totalDebt = currentLoanProgress?.summary.total_paid + currentLoanProgress?.summary.total_remaining
   const paidOff = currentLoanProgress?.summary.total_paid
@@ -32,50 +24,10 @@ export const Summary = ({
   const monthsTilPayoff = activeSim?.totals.months_til_payoff ?? currentLoanProgress?.summary.months_to_payoff
   const payoffDate = activeSim?.totals.payoff_date ?? currentLoanProgress?.summary.payoff_date
 
-  const simNextPayment = useMemo(() => {
-    if (!simulation || !loans) return nextMonthlyPayment
-    const today = new Date()
-    const activeLoans = loans.filter((l) => l.current_principal > 0.01)
-
-    // Find the target loan (first by sim payoff order with a remaining balance)
-    const simLoansOrdered = [...(simulation.loans ?? [])].sort((a, b) => (a.payoff_order ?? 0) - (b.payoff_order ?? 0))
-    const targetSl = simLoansOrdered.find((sl) => {
-      const loan = activeLoans.find((l) => String(l.id) === String(sl.loan_id))
-      return loan && loan.current_principal > 0.01
-    })
-    const targetLoan = targetSl ? activeLoans.find((l) => String(l.id) === String(targetSl.loan_id)) : null
-
-    // Extra payment delta: what simulation will apply at the target loan's next payment date
-    // vs. what is currently reflected in the server's payment schedule
-    let extraDelta = 0
-    if (targetLoan && simulation.extra_payments?.length) {
-      const targetNextDate = new Date(today.getFullYear(), today.getMonth(), targetLoan.payment_day_of_month)
-      if (targetNextDate <= today) targetNextDate.setMonth(targetNextDate.getMonth() + 1)
-      const active = [...simulation.extra_payments]
-        .filter((ep) => new Date(ep.start_date as unknown as string) <= targetNextDate)
-        .sort((a, b) => new Date(b.start_date as unknown as string).getTime() - new Date(a.start_date as unknown as string).getTime())
-      const simExtraAtNext = Number(active[0]?.amount ?? 0)
-      const currentLoanExtra = Number(targetLoan.current_extra_payment ?? 0)
-      extraDelta = simExtraAtNext - currentLoanExtra
-    }
-
-    // Lump sums due in the next payment window
-    const maxNextDate = activeLoans.reduce((max, loan) => {
-      const d = new Date(today.getFullYear(), today.getMonth(), loan.payment_day_of_month)
-      if (d <= today) d.setMonth(d.getMonth() + 1)
-      return d > max ? d : max
-    }, today)
-    const lumpTotal = (simulation.lump_sum_payments ?? [])
-      .filter((lsp) => {
-        const d = new Date(lsp.date as unknown as string)
-        return d > today && d <= maxNextDate
-      })
-      .reduce((sum, lsp) => sum + lsp.amount, 0)
-
-    return (nextMonthlyPayment ?? 0) + extraDelta + lumpTotal
-  }, [simulation, loans, nextMonthlyPayment])
-
-  const displayNextPayment = simulation ? simNextPayment : nextMonthlyPayment
+  // The server reads next month from the active simulation's projection when
+  // one is active, so this already includes extra payments, lump sums and
+  // minimums cascaded from paid-off loans.
+  const displayNextPayment = nextMonthlyPayment
 
   return (
     <Card className='rounded-none'>
