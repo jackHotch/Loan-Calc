@@ -19,12 +19,15 @@ function buildScheduleSeries(
   }))
 }
 
+// Names come from the loans themselves: a loan paid off before the simulation
+// starts has no projected payments, so it is missing from the simulation's
+// per-loan summary but still has its history to draw.
 function buildSimulationChartData(
   simulation: Simulation,
-  perLoan: PerLoan[],
+  loans: LoanDb[],
   loanSchedules?: LoanScheduleEntry[],
 ): { data: Record<string, number | string>[]; loanNames: string[] } {
-  const nameMap = new Map(perLoan.map((pl) => [String(pl.loan_id), pl.name ?? `Loan ${pl.loan_id}`]))
+  const nameMap = new Map((loans ?? []).map((l) => [String(l.id), l.name]))
   const dateMap = new Map<string, Record<string, number | string>>()
 
   // Index actual history from real loan schedules, keyed by loan_id → date → remaining
@@ -56,7 +59,7 @@ function buildSimulationChartData(
     }
   }
 
-  const loanNames = perLoan.map((pl) => pl.name ?? `Loan ${pl.loan_id}`)
+  const loanNames = simulation.loans.map((sl) => nameMap.get(String(sl.loan_id)) ?? `Loan ${sl.loan_id}`)
 
   return {
     data: Array.from(dateMap.keys())
@@ -79,14 +82,13 @@ export function LoanProgressChart({
 }) {
   const isSimulated = !!(simulation && simulationPerLoan?.length)
 
-  const activeLoans = useMemo(() => loans?.filter((l) => l.current_principal > 0.01) ?? [], [loans])
-
-  const { chartData, chartConfig, tickDates, todayKey } = useMemo(() => {
+  // Paid-off loans stay on the chart: their line runs down to zero and stops.
+  const { chartData, chartConfig, tickDates, todayKey, loanNames } = useMemo(() => {
     let sortedData: Record<string, number | string>[] = []
     let loanNames: string[] = []
 
     if (isSimulated) {
-      const built = buildSimulationChartData(simulation, simulationPerLoan, loanSchedules)
+      const built = buildSimulationChartData(simulation, loans, loanSchedules)
       sortedData = built.data
       loanNames = built.loanNames
     } else {
@@ -97,7 +99,7 @@ export function LoanProgressChart({
         if (!schedulesByLoanId.has(key)) schedulesByLoanId.set(key, [])
         schedulesByLoanId.get(key)!.push(entry)
       }
-      for (const loan of activeLoans) {
+      for (const loan of loans ?? []) {
         const entries = schedulesByLoanId.get(String(loan.id)) ?? []
         const series = buildScheduleSeries(entries)
         for (const { date, remaining } of series) {
@@ -108,7 +110,7 @@ export function LoanProgressChart({
       sortedData = Array.from(dateMap.keys())
         .sort()
         .map((key) => dateMap.get(key)!)
-      loanNames = activeLoans.map((l) => l.name)
+      loanNames = (loans ?? []).map((l) => l.name)
     }
 
     const config = loanNames.reduce<ChartConfig>((acc, name) => {
@@ -125,11 +127,7 @@ export function LoanProgressChart({
       todayKey: format(new Date(), 'yyyy-MM'),
       loanNames,
     }
-  }, [isSimulated, simulation, simulationPerLoan, activeLoans, loanSchedules])
-
-  const loanNames = isSimulated
-    ? (simulationPerLoan?.map((pl) => pl.name ?? `Loan ${pl.loan_id}`) ?? [])
-    : activeLoans.map((l) => l.name)
+  }, [isSimulated, simulation, loans, loanSchedules])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [tooltipActive, setTooltipActive] = useState<boolean | undefined>(undefined)
@@ -151,7 +149,7 @@ export function LoanProgressChart({
   if (!loanNames.length) {
     return (
       <Card className='flex flex-1 items-center justify-center'>
-        <p className='text-muted-foreground text-sm'>No active loans</p>
+        <p className='text-muted-foreground text-sm'>No loans</p>
       </Card>
     )
   }
